@@ -40,6 +40,6 @@
   - [ ] Remove 1-click persona switcher from all components.
   - [ ] Remove auto-login fallback in `AuthContext.jsx` so unauthenticated visitors see a guest catalog and authentication modal.
   - [ ] Restrict `Custodian Desk` navigation strictly to authenticated users with `custodian` or `admin` roles.
-- [ ] **Phase 5.5: Git Repository & GitHub Readiness**
-  - [ ] Update `.env.example` to document `DB_CONNECTION=mongodb` and `DB_URI` placeholders without exposing secrets.
-  - [ ] Initialize local git repository, stage tracked files, and verify `.gitignore` integrity.
+- [x] **Phase 5.5: Git Repository & GitHub Readiness**
+  - [x] Update `.env.example` to document `DB_CONNECTION=mongodb` and `DB_URI` placeholders without exposing secrets.
+  - [x] Initialize local git repository, stage tracked files, and verify `.gitignore` integrity.
