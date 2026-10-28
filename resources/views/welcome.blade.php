@@ -1,11 +1,29 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Equiply • Campus Resource Nexus & P2P Gear Lending</title>
-    <meta name="description" content="Hybrid campus borrowing and verified peer-to-peer equipment rental platform with real-time atomic reservation engine.">
+    <meta name="color-scheme" content="light">
+    <title>Equiply • USTP Campus Resource Nexus & P2P Gear Lending</title>
+    <meta name="description" content="USTP hybrid campus borrowing and verified peer-to-peer equipment rental platform with real-time atomic reservation engine.">
+
+    <script>
+        (function() {
+            try {
+                var theme = localStorage.getItem('equiply_theme') || 'light';
+                if (theme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                    var meta = document.querySelector('meta[name="color-scheme"]');
+                    if (meta) meta.content = 'dark';
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    var meta = document.querySelector('meta[name="color-scheme"]');
+                    if (meta) meta.content = 'light';
+                }
+            } catch (e) {}
+        })();
+    </script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,7 +33,7 @@
     @viteReactRefresh
     @vite(['resources/css/app.css', 'resources/js/app.jsx'])
 </head>
-<body class="bg-[#0B0F19] text-slate-100 antialiased min-h-screen selection:bg-indigo-500 selection:text-white font-['Inter',sans-serif]">
+<body class="bg-canvas-light dark:bg-canvas-dark text-slate-900 dark:text-slate-100 antialiased min-h-screen selection:bg-amber-400 selection:text-slate-900 font-['Inter',sans-serif]">
     <div id="root"></div>
 </body>
 </html>

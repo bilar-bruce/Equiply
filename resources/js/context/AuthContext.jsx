@@ -3,45 +3,6 @@ import { authApi } from '../api/client';
 
 const AuthContext = createContext(null);
 
-export const DEMO_PERSONAS = [
-    {
-        key: 'student',
-        role: 'student',
-        title: 'Alex Rivera',
-        badge: 'Borrower Student',
-        login: 'alex.rivera@campus.edu',
-        password: 'password123',
-        id_number: '2023-10042',
-    },
-    {
-        key: 'peer_lender',
-        role: 'student',
-        title: 'Jordan Lee',
-        badge: 'Peer Lender (P2P)',
-        login: 'jordan.lee@campus.edu',
-        password: 'password123',
-        id_number: '2022-20088',
-    },
-    {
-        key: 'custodian',
-        role: 'custodian',
-        title: 'Maria Santos',
-        badge: 'Facility Custodian',
-        login: 'custodian@campus.edu',
-        password: 'custodian123',
-        id_number: 'EMP-2019-041',
-    },
-    {
-        key: 'admin',
-        role: 'admin',
-        title: 'System Admin',
-        badge: 'Administrator',
-        login: 'admin@campus.edu',
-        password: 'admin123',
-        id_number: 'ADM-2015-001',
-    },
-];
-
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(() => {
         try {
@@ -69,16 +30,9 @@ export function AuthProvider({ children }) {
                     setToken(null);
                 }
             } else {
-                // Auto-login Alex Rivera (Student) by default so app is immediately interactive!
-                try {
-                    const res = await authApi.login('alex.rivera@campus.edu', 'password123');
-                    localStorage.setItem('equiply_token', res.token);
-                    localStorage.setItem('equiply_user', JSON.stringify(res.user));
-                    setUser(res.user);
-                    setToken(res.token);
-                } catch (e) {
-                    console.warn('Auto-login fallback:', e);
-                }
+                // Production: Unauthenticated visitors remain guests
+                setUser(null);
+                setToken(null);
             }
             setIsLoading(false);
         };
@@ -132,12 +86,6 @@ export function AuthProvider({ children }) {
         }
     };
 
-    const switchPersona = async (personaKey) => {
-        const persona = DEMO_PERSONAS.find((p) => p.key === personaKey);
-        if (!persona) return;
-        return await login(persona.login, persona.password);
-    };
-
     return (
         <AuthContext.Provider
             value={{
@@ -148,7 +96,6 @@ export function AuthProvider({ children }) {
                 login,
                 register,
                 logout,
-                switchPersona,
                 isCustodian: user?.role === 'custodian' || user?.role === 'admin',
                 isAdmin: user?.role === 'admin',
             }}

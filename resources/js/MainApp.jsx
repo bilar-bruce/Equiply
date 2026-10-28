@@ -1,16 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import Navbar from './components/Navbar';
+import { ThemeProvider } from './context/ThemeContext';
+import Sidebar from './components/Sidebar';
 import CatalogView from './components/CatalogView';
 import CustodianDashboard from './components/CustodianDashboard';
 import MyRentalsView from './components/MyRentalsView';
 import SpecsModal from './components/SpecsModal';
 import ReservationModal from './components/ReservationModal';
 import AuthModal from './components/AuthModal';
-import { CheckCircle2, ShieldCheck, Sparkles, Layers } from 'lucide-react';
+import { CheckCircle2, Layers } from 'lucide-react';
 
 function MainLayout() {
-    const { user, isCustodian } = useAuth();
+    const { user, isAuthenticated, isCustodian } = useAuth();
     const [activeTab, setActiveTab] = useState('catalog');
     const [specsItem, setSpecsItem] = useState(null);
     const [reserveItem, setReserveItem] = useState(null);
@@ -18,9 +19,26 @@ function MainLayout() {
     const [refreshKey, setRefreshKey] = useState(0);
     const [toastMessage, setToastMessage] = useState(null);
 
+    // Guard Custodian Desk tab strictly to authenticated custodians
+    useEffect(() => {
+        if (activeTab === 'custodian' && (!isAuthenticated || !isCustodian)) {
+            setActiveTab('catalog');
+            showToast('Access restricted: Custodian credentials required.');
+        }
+    }, [activeTab, isAuthenticated, isCustodian]);
+
     const showToast = (msg) => {
         setToastMessage(msg);
         setTimeout(() => setToastMessage(null), 4000);
+    };
+
+    const handleOpenReserve = (item) => {
+        if (!isAuthenticated) {
+            setAuthModalOpen(true);
+            showToast('Please sign in with your USTP ID to reserve equipment.');
+            return;
+        }
+        setReserveItem(item);
     };
 
     const handleReservationSuccess = (rental) => {
@@ -29,44 +47,63 @@ function MainLayout() {
     };
 
     return (
-        <div className="min-h-screen flex flex-col bg-[#0B0F19] text-slate-100">
-            {/* Navbar */}
-            <Navbar
+        <div className="min-h-screen bg-canvas-light dark:bg-canvas-dark text-slate-900 dark:text-slate-100 flex flex-col lg:flex-row font-['Inter',sans-serif]">
+            {/* Left-Hand Sidebar Navigation */}
+            <Sidebar
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
                 onOpenAuthModal={() => setAuthModalOpen(true)}
             />
 
-            {/* Toast Notification */}
-            {toastMessage && (
-                <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl bg-slate-900 border border-emerald-500/30 shadow-2xl text-xs font-semibold text-emerald-300 animate-in slide-in-from-bottom-5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>{toastMessage}</span>
-                </div>
-            )}
-
-            {/* Main Content Area */}
-            <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {activeTab === 'catalog' && (
-                    <CatalogView
-                        refreshKey={refreshKey}
-                        onSelectSpecs={(item) => setSpecsItem(item)}
-                        onOpenReserve={(item) => setReserveItem(item)}
-                    />
+            {/* Main Content Area Container */}
+            <div className="flex-1 flex flex-col min-w-0">
+                {/* Toast Notification */}
+                {toastMessage && (
+                    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl bg-white dark:bg-slate-900 border border-emerald-500/40 shadow-xl text-xs font-semibold text-emerald-700 dark:text-emerald-300 animate-in slide-in-from-bottom-5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                        <span>{toastMessage}</span>
+                    </div>
                 )}
 
-                {activeTab === 'my-rentals' && (
-                    <MyRentalsView
-                        onRefreshTrigger={() => setRefreshKey((prev) => prev + 1)}
-                    />
-                )}
+                {/* Primary Route Views */}
+                <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+                    {activeTab === 'catalog' && (
+                        <CatalogView
+                            refreshKey={refreshKey}
+                            onSelectSpecs={(item) => setSpecsItem(item)}
+                            onOpenReserve={handleOpenReserve}
+                            onOpenAuthModal={() => setAuthModalOpen(true)}
+                        />
+                    )}
 
-                {activeTab === 'custodian' && (
-                    <CustodianDashboard
-                        onRefreshTrigger={() => setRefreshKey((prev) => prev + 1)}
-                    />
-                )}
-            </main>
+                    {activeTab === 'my-rentals' && (
+                        <MyRentalsView
+                            onRefreshTrigger={() => setRefreshKey((prev) => prev + 1)}
+                            onOpenAuthModal={() => setAuthModalOpen(true)}
+                        />
+                    )}
+
+                    {activeTab === 'custodian' && (
+                        <CustodianDashboard
+                            onRefreshTrigger={() => setRefreshKey((prev) => prev + 1)}
+                        />
+                    )}
+                </main>
+
+                {/* Flat Clean Footer */}
+                <footer className="border-t border-slate-200 dark:border-slate-800/80 py-5 text-center text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-[#120E2E]/60 mt-auto">
+                    <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                            <Layers className="w-4 h-4 text-ustp-gold" />
+                            <span className="font-bold text-ustp-navy dark:text-slate-200">Equiply USTP Nexus</span>
+                            <span className="text-slate-400">• Laravel 12 + MongoDB Atlas Replica Set</span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                            Sanctum Token Auth • ACID Multi-Document Transactions • P2P Campus Lending
+                        </div>
+                    </div>
+                </footer>
+            </div>
 
             {/* Modals */}
             {specsItem && (
@@ -89,28 +126,16 @@ function MainLayout() {
                 isOpen={authModalOpen}
                 onClose={() => setAuthModalOpen(false)}
             />
-
-            {/* Footer */}
-            <footer className="border-t border-white/5 py-6 text-center text-xs text-slate-500 glass-panel mt-12">
-                <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                        <Layers className="w-4 h-4 text-indigo-400" />
-                        <span className="font-semibold text-slate-300">Equiply Engine</span>
-                        <span>• Laravel 12 + MongoDB Atlas Replica Set</span>
-                    </div>
-                    <div className="text-[11px] text-slate-500">
-                        Sanctum Token Auth • ACID Multi-Document Transactions • Verified P2P Lending
-                    </div>
-                </div>
-            </footer>
         </div>
     );
 }
 
 export default function MainApp() {
     return (
-        <AuthProvider>
-            <MainLayout />
-        </AuthProvider>
+        <ThemeProvider>
+            <AuthProvider>
+                <MainLayout />
+            </AuthProvider>
+        </ThemeProvider>
     );
 }
