@@ -184,6 +184,11 @@ export default function CatalogView({ onSelectSpecs, onOpenReserve, refreshKey }
         }
     };
 
+    const fetchCatalog = () => {
+        fetchCategories();
+        fetchItems(true);
+    };
+
     // Category metadata only fetches on initial mount and when inventory updates
     useEffect(() => {
         fetchCategories();

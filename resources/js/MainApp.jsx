@@ -134,12 +134,54 @@ function MainLayout() {
     );
 }
 
+class ErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
+    }
+
+    static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+    }
+
+    componentDidCatch(error, errorInfo) {
+        console.error('Equiply UI Boundary Exception:', error, errorInfo);
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="min-h-screen bg-slate-50 dark:bg-[#120E2E] flex items-center justify-center p-6 text-slate-800 dark:text-slate-100 font-['Inter',sans-serif]">
+                    <div className="max-w-md w-full p-8 bg-white dark:bg-[#1B1642] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl text-center">
+                        <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center mx-auto mb-4">
+                            <Layers className="w-6 h-6" />
+                        </div>
+                        <h2 className="text-lg font-bold text-slate-900 dark:text-white">Interface Notice</h2>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                            {this.state.error?.message || 'An interface render exception occurred.'}
+                        </p>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="mt-6 px-5 py-2.5 rounded-xl bg-ustp-navy dark:bg-ustp-gold text-white dark:text-slate-950 text-xs font-bold shadow-md transition-all"
+                        >
+                            Reload Application
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
 export default function MainApp() {
     return (
-        <ThemeProvider>
-            <AuthProvider>
-                <MainLayout />
-            </AuthProvider>
-        </ThemeProvider>
+        <ErrorBoundary>
+            <ThemeProvider>
+                <AuthProvider>
+                    <MainLayout />
+                </AuthProvider>
+            </ThemeProvider>
+        </ErrorBoundary>
     );
 }
