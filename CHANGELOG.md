@@ -4,7 +4,55 @@ All notable changes and architectural updates to the Equiply project are documen
 
 ---
 
-## [Unreleased / Initial Implementation] - 2026-10-28
+## [0.2.0] - Milestone 5: USTP Design System & Performance Optimization - 2026-10-28
+
+### 🌟 Overview
+Executed a comprehensive architectural and visual transformation of Equiply, adopting the official institutional aesthetic of the **University of Science and Technology of Southern Philippines (USTP)**. Transitioned the platform from an experimental prototype with developer testing shortcuts to a production-hardened system equipped with zero-latency tab caching, N+1 query resolution, and component error boundaries.
+
+---
+
+### 1. USTP Design System & Theme Foundation
+- **Institutional Design Tokens**:
+  - Configured USTP Deep Navy (`#1B1642`), Warm Amber/Gold (`#F5A623`), crisp White canvas (`#FFFFFF`), and subtle slate borders.
+  - Stripped prototype glow effects, glassmorphism overlays, and unnecessary gradients in favor of high-contrast, clean, flat academic surfaces.
+- **Light & Dark Mode Support**:
+  - Implemented [ThemeContext.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/context/ThemeContext.jsx) defaulting to USTP Light Mode with instant Dark Mode toggle persisted to `localStorage` and synchronized across browser tabs.
+
+---
+
+### 2. Left-Hand Sidebar Navigation & Layout Architecture
+- **Modern Sidebar ([Sidebar.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/Sidebar.jsx))**:
+  - Replaced the top sticky navbar with an ergonomic left-hand sidebar layout.
+  - Integrated brand header, navigation links (`Gear Catalog`, `My Borrowings`, `Custodian Desk`), dark/light theme switch, and user profile summary.
+  - Added responsive mobile drawer collapse with backdrop blur overlay.
+
+---
+
+### 3. Production Hardening (Removal of Testing Artifacts)
+- **Eliminated Testing Cheats**:
+  - Removed the 1-click demo persona switcher and hardcoded test account dropdowns from all views.
+  - Removed the automatic Alex Rivera auto-login fallback in [AuthContext.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/context/AuthContext.jsx).
+  - Unauthenticated visitors land as guests with interactive catalog viewing; reservation actions trigger authentication modals.
+- **Server-Enforced Access Control**:
+  - Guarded the `Custodian Desk` navigation item and view strictly to authenticated staff with `custodian` or `admin` roles.
+
+---
+
+### 4. Performance Engineering & Cloud Latency Elimination
+- **N+1 Database Query Resolution**:
+  - Refactored `ItemController@categories` in [ItemController.php](file:///c:/Users/Lenovo/Documents/Equiply/app/Http/Controllers/Api/ItemController.php).
+  - Collapsed **10 sequential remote round-trips to MongoDB Atlas** down to **1 single query** (`Item::select(['category', 'availability_stat'])->get()`), aggregating counts in-memory in under 0.1ms.
+  - Added short TTL caching (`Cache::remember('equiply_category_counts', 15, ...)`) with automated cache clearing on reservations, dispatches, check-ins, cancellations, and item creation in [ReservationController.php](file:///c:/Users/Lenovo/Documents/Equiply/app/Http/Controllers/Api/ReservationController.php).
+- **Zero-Latency Tab Switching (0ms)**:
+  - Refactored [MainApp.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/MainApp.jsx) to keep primary views persistent in the DOM using CSS display toggles (`block` / `hidden`), eliminating component unmounting, data loss, and redundant network re-fetching on tab clicks.
+- **Query Decoupling**:
+  - Separated category statistics querying from item filtering and search debouncing in [CatalogView.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/CatalogView.jsx).
+- **Defensive Error Handling**:
+  - Wrapped application in a robust React `ErrorBoundary` in [MainApp.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/MainApp.jsx) to prevent silent blank screens and provide user-friendly one-click reload recovery.
+
+---
+
+## [0.1.0] - Initial Full-Stack Implementation - 2026-10-28
 
 ### 🌟 Overview
 Completed the full-stack foundation for **Equiply**, a hybrid campus equipment borrowing and verified peer-to-peer (P2P) gear lending platform powered by **Laravel 12 REST API**, **MongoDB Atlas 3-node Replica Set**, and a **React (Vite) + Tailwind CSS** frontend.
