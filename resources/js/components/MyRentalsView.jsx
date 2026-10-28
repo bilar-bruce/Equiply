@@ -12,7 +12,7 @@ import {
     Shield
 } from 'lucide-react';
 
-export default function MyRentalsView({ onRefreshTrigger, onOpenAuthModal }) {
+export default function MyRentalsView({ onRefreshTrigger, onOpenAuthModal, refreshKey }) {
     const { user, isAuthenticated } = useAuth();
     const [myRentals, setMyRentals] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -37,7 +37,7 @@ export default function MyRentalsView({ onRefreshTrigger, onOpenAuthModal }) {
         } else {
             setMyRentals([]);
         }
-    }, [user, isAuthenticated]);
+    }, [user, isAuthenticated, refreshKey]);
 
     if (!isAuthenticated) {
         return (

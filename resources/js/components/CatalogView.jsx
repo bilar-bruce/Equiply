@@ -151,8 +151,23 @@ export default function CatalogView({ onSelectSpecs, onOpenReserve, refreshKey }
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
 
-    const fetchCatalog = async () => {
-        setLoading(true);
+    const fetchCategories = async () => {
+        try {
+            const catData = await itemsApi.categories();
+            setCategoryStats(catData.categories || []);
+            setCategoryMeta({
+                total_all: catData.total_all || 0,
+                total_available: catData.total_available || 0,
+            });
+        } catch (err) {
+            console.error('Failed to load categories:', err);
+        }
+    };
+
+    const fetchItems = async (isInitial = false) => {
+        if (isInitial || items.length === 0) {
+            setLoading(true);
+        }
         try {
             const params = {};
             if (searchQuery) params.search = searchQuery;
@@ -160,17 +175,8 @@ export default function CatalogView({ onSelectSpecs, onOpenReserve, refreshKey }
             if (selectedAvailability !== 'all') params.availability = selectedAvailability;
             if (selectedOwnerType !== 'all') params.owner_type = selectedOwnerType;
 
-            const [itemsData, catData] = await Promise.all([
-                itemsApi.list(params),
-                itemsApi.categories(),
-            ]);
-
+            const itemsData = await itemsApi.list(params);
             setItems(itemsData.data || []);
-            setCategoryStats(catData.categories || []);
-            setCategoryMeta({
-                total_all: catData.total_all || 0,
-                total_available: catData.total_available || 0,
-            });
         } catch (err) {
             console.error('Failed to load catalog:', err);
         } finally {
@@ -178,10 +184,16 @@ export default function CatalogView({ onSelectSpecs, onOpenReserve, refreshKey }
         }
     };
 
+    // Category metadata only fetches on initial mount and when inventory updates
+    useEffect(() => {
+        fetchCategories();
+    }, [refreshKey]);
+
+    // Debounced items fetch for search/filters
     useEffect(() => {
         const timeoutId = setTimeout(() => {
-            fetchCatalog();
-        }, 200);
+            fetchItems();
+        }, 150);
         return () => clearTimeout(timeoutId);
     }, [searchQuery, selectedCategory, selectedAvailability, selectedOwnerType, refreshKey]);
 

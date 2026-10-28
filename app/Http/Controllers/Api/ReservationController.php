@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -152,6 +153,7 @@ class ReservationController extends Controller
         });
 
         $rental->load(['item', 'borrower']);
+        Cache::forget('equiply_category_counts');
 
         return (new RentalResource($rental))
             ->response()
@@ -190,6 +192,7 @@ class ReservationController extends Controller
         });
 
         $rental->load(['item', 'borrower', 'custodian']);
+        Cache::forget('equiply_category_counts');
 
         return response()->json([
             'message' => "Item successfully checked out to borrower.",
@@ -246,6 +249,7 @@ class ReservationController extends Controller
         });
 
         $rental->load(['item', 'borrower', 'custodian']);
+        Cache::forget('equiply_category_counts');
 
         return response()->json([
             'message' => 'Item successfully returned and checked in.',
@@ -283,6 +287,8 @@ class ReservationController extends Controller
 
             return $rental;
         });
+
+        Cache::forget('equiply_category_counts');
 
         return response()->json([
             'message' => 'Reservation successfully cancelled.',

@@ -65,28 +65,32 @@ function MainLayout() {
                     </div>
                 )}
 
-                {/* Primary Route Views */}
+                {/* Primary Route Views - Persistent Views with CSS Display for 0ms Tab Switching */}
                 <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-                    {activeTab === 'catalog' && (
+                    <div className={activeTab === 'catalog' ? 'block' : 'hidden'}>
                         <CatalogView
                             refreshKey={refreshKey}
                             onSelectSpecs={(item) => setSpecsItem(item)}
                             onOpenReserve={handleOpenReserve}
                             onOpenAuthModal={() => setAuthModalOpen(true)}
                         />
-                    )}
+                    </div>
 
-                    {activeTab === 'my-rentals' && (
+                    <div className={activeTab === 'my-rentals' ? 'block' : 'hidden'}>
                         <MyRentalsView
+                            refreshKey={refreshKey}
                             onRefreshTrigger={() => setRefreshKey((prev) => prev + 1)}
                             onOpenAuthModal={() => setAuthModalOpen(true)}
                         />
-                    )}
+                    </div>
 
-                    {activeTab === 'custodian' && (
-                        <CustodianDashboard
-                            onRefreshTrigger={() => setRefreshKey((prev) => prev + 1)}
-                        />
+                    {isAuthenticated && isCustodian && (
+                        <div className={activeTab === 'custodian' ? 'block' : 'hidden'}>
+                            <CustodianDashboard
+                                refreshKey={refreshKey}
+                                onRefreshTrigger={() => setRefreshKey((prev) => prev + 1)}
+                            />
+                        </div>
                     )}
                 </main>
 

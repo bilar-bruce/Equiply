@@ -8,6 +8,7 @@ use App\Models\Item;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Cache;
 
 class ItemController extends Controller
 {
@@ -80,30 +81,44 @@ class ItemController extends Controller
 
     /**
      * Retrieve available categories with their item counts.
+     * Optimized into a single query + short cache to avoid N+1 remote Atlas round-trips.
      */
     public function categories(): JsonResponse
     {
-        $categories = [
-            'Laboratory Attire',
-            'Computation',
-            'Electronics',
-            'General',
-        ];
-
-        $counts = [];
-        foreach ($categories as $cat) {
-            $counts[] = [
-                'name' => $cat,
-                'total_items' => Item::where('category', $cat)->count(),
-                'available_items' => Item::where('category', $cat)->where('availability_stat', 'available')->count(),
+        $data = Cache::remember('equiply_category_counts', 15, function () {
+            $categories = [
+                'Laboratory Attire',
+                'Computation',
+                'Electronics',
+                'General',
             ];
-        }
 
-        return response()->json([
-            'categories' => $counts,
-            'total_all' => Item::count(),
-            'total_available' => Item::where('availability_stat', 'available')->count(),
-        ]);
+            // 1 single query retrieving only the necessary fields
+            $items = Item::select(['category', 'availability_stat'])->get();
+
+            $counts = [];
+            $totalAvailable = 0;
+
+            foreach ($categories as $cat) {
+                $catItems = $items->where('category', $cat);
+                $availCount = $catItems->where('availability_stat', 'available')->count();
+                $totalAvailable += $availCount;
+
+                $counts[] = [
+                    'name' => $cat,
+                    'total_items' => $catItems->count(),
+                    'available_items' => $availCount,
+                ];
+            }
+
+            return [
+                'categories' => $counts,
+                'total_all' => $items->count(),
+                'total_available' => $totalAvailable,
+            ];
+        });
+
+        return response()->json($data);
     }
 
     /**
@@ -143,6 +158,8 @@ class ItemController extends Controller
             'tags' => $validated['tags'] ?? [],
             'specs' => $validated['specs'] ?? [],
         ]);
+
+        Cache::forget('equiply_category_counts');
 
         return (new ItemResource($item))
             ->response()
