@@ -4,6 +4,67 @@ All notable changes and architectural updates to the Equiply project are documen
 
 ---
 
+## [0.3.0] - Milestone 6 & 7: Admin Account Management, Branding Scrub & Split-Screen Authentication Portal - 2026-11-03
+
+### 🌟 Overview
+Delivered a complete institutional refinement and security hardening release for Equiply:
+1. Standardized all campus user accounts and placeholders to the official **USTP 10-digit ID standard** (`YYYY######`, e.g. `2024300616`).
+2. Performed a comprehensive terminology scrub, replacing technical database jargon with clean university branding (`Equiply • USTP Campus Equipment Portal`).
+3. Built an **In-Person Facility Account Provisioning & Admin Governance** engine ([AdminController.php](file:///c:/Users/Lenovo/Documents/Equiply/app/Http/Controllers/Api/AdminController.php), [AdminUsersView.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/AdminUsersView.jsx), and [EnrollStudentModal.jsx](file:///c:/Users/Lenovo/Documents\Equiply\resources\js\components\EnrollStudentModal.jsx)) with self-suspension and self-demotion lockout safeguards.
+4. Created the full-screen **Split-Screen Authentication Portal** ([LoginPage.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/LoginPage.jsx)) featuring a 3-Step Campus Borrowing Stepper, institutional policy notices, and streamlined Guest Mode navigation ([GuestPromptModal.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/GuestPromptModal.jsx)).
+
+---
+
+### 1. UI Branding Scrub & Terminology Alignment (Phase 6.1)
+- **Eliminated Developer Watermarks**:
+  - Completely stripped the `Atlas ACID Engine [ONLINE]` status pill from [Sidebar.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/Sidebar.jsx).
+  - Replaced technical jargon in modal banners (e.g. "ACID Transaction Lock" -> "Guaranteed Campus Allocation", "Transaction Aborted" -> "Reservation Unsuccessful", "Updating Atlas..." -> "Processing Return...").
+  - Replaced all occurrences of "Nexus" with **"Portal"** (`Equiply • USTP Campus Equipment Portal`) across [Sidebar.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/Sidebar.jsx), [MainApp.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/MainApp.jsx), and [welcome.blade.php](file:///c:/Users/Lenovo/Documents/Equiply/resources/views/welcome.blade.php).
+  - Updated the application footer to institutional university copyright and operational subtitle.
+- **USTP 10-Digit ID Standardization**:
+  - Enforced strict 10-digit numeric ID format (`YYYY######`) across all accounts in [DatabaseSeeder.php](file:///c:/Users/Lenovo/Documents/Equiply/database/seeders/DatabaseSeeder.php):
+    - Student (*Alex Rivera*): `2024300616`
+    - Peer Lender (*Jordan Lee*): `2024301824`
+    - Custodian (*Maria Santos*): `2019100041`
+    - Administrator (*System Administrator*): `2015100001`
+  - Updated all form placeholders, collateral references, and validation rules to standard 10-digit campus IDs.
+
+---
+
+### 2. Facility Account Provisioning & Admin Management Backend (Phase 6.2)
+- **Dedicated Admin API ([AdminController.php](file:///c:/Users/Lenovo/Documents/Equiply/app/Http/Controllers/Api/AdminController.php))**:
+  - `GET /api/admin/users`: Search across name, 10-digit ID, or email with role, status, and peer lender filters, accompanied by real-time aggregate metrics.
+  - `POST /api/admin/users`: Physical in-person account provisioning by authorized facility staff (Custodian/Admin), validating 10-digit format and assigning standard temporary passwords (`USTP@<id_number>`).
+  - `PATCH /api/admin/users/{id}/status`: Toggle account suspension (`active` <-> `suspended`) with **self-suspension lockout protection**.
+  - `PATCH /api/admin/users/{id}/peer-lender`: Grant or revoke P2P lending privileges.
+  - `PATCH /api/admin/users/{id}/role`: Update account role (`student`, `custodian`, `admin`) with **self-demotion lockout protection**.
+- **Disabled Public Self-Registration**:
+  - Updated `POST /api/auth/register` in [AuthController.php](file:///c:/Users/Lenovo/Documents/Equiply/app/Http/Controllers/Api/AuthController.php) to return HTTP 403 Forbidden with official facility policy directing students to register in person at the Facility Desk.
+
+---
+
+### 3. Admin Account Management Interface & Desk Enrollment (Phase 6.3)
+- **Campus Account Governance ([AdminUsersView.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/AdminUsersView.jsx))**:
+  - Summary metric cards: Total Accounts, Active Students, P2P Lenders, Facility Staff, and Suspended Accounts.
+  - Interactive table with real-time keyword search, role pill filters, status toggles, and peer lending switches.
+  - Registered "Account Management" navigation tab in [Sidebar.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/Sidebar.jsx), strictly restricted to authenticated Admins.
+- **Physical ID Verification Modal ([EnrollStudentModal.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/EnrollStudentModal.jsx))**:
+  - Reusable enrollment modal accessible to Admins in `AdminUsersView` and to Custodians directly via "+ Enroll Student" on [CustodianDashboard.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/CustodianDashboard.jsx).
+
+---
+
+### 4. Split-Screen Authentication Portal & Guest Mode (Milestone 7)
+- **Split-Screen Authentication View ([LoginPage.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/LoginPage.jsx))**:
+  - Left panel: High-contrast USTP Deep Navy (`#1B1642`) with gold accents showcasing the **3-Step Campus Borrowing Stepper** (Discovery -> Reservation & Collateral Lock -> Dispatch & Fast Return) and official facility notices.
+  - Right panel: Focused sign-in form supporting 10-digit Student ID or Campus Email + Password, with dark/light mode toggle.
+- **Seamless Guest Navigation ([MainApp.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/MainApp.jsx))**:
+  - Unauthenticated visitors land directly on the split-screen `LoginPage` by default.
+  - Prominent **"Continue as Guest (Browse Catalog Only)"** CTA enters the catalog with complete browsing and specifications inspection enabled.
+  - Persistent "Sign In to Portal" button in [Sidebar.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/Sidebar.jsx) allows instant return to the authentication portal at any time.
+  - Equipment reservation attempts while in Guest Mode surface [GuestPromptModal.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/GuestPromptModal.jsx), offering a gentle one-click path to sign in or return to browsing.
+
+---
+
 ## [0.2.0] - Milestone 5: USTP Design System & Performance Optimization - 2026-10-28
 
 ### 🌟 Overview

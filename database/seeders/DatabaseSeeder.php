@@ -18,10 +18,11 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Seed Initial Users (student, peer lender, custodian, admin)
+        // 1. Seed Initial Users (student, peer lender, custodian, admin with 10-digit standard)
         $student = User::updateOrCreate(
-            ['id_number' => '2023-10042'],
+            ['email' => 'alex.rivera@campus.edu'],
             [
+                'id_number' => '2024300616',
                 'name' => 'Alex Rivera',
                 'email' => 'alex.rivera@campus.edu',
                 'password' => Hash::make('password123'),
@@ -33,8 +34,9 @@ class DatabaseSeeder extends Seeder
         );
 
         $peerLender = User::updateOrCreate(
-            ['id_number' => '2022-20088'],
+            ['email' => 'jordan.lee@campus.edu'],
             [
+                'id_number' => '2024301824',
                 'name' => 'Jordan Lee',
                 'email' => 'jordan.lee@campus.edu',
                 'password' => Hash::make('password123'),
@@ -46,8 +48,9 @@ class DatabaseSeeder extends Seeder
         );
 
         $custodian = User::updateOrCreate(
-            ['id_number' => 'EMP-2019-041'],
+            ['email' => 'custodian@campus.edu'],
             [
+                'id_number' => '2019100041',
                 'name' => 'Maria Santos',
                 'email' => 'custodian@campus.edu',
                 'password' => Hash::make('custodian123'),
@@ -59,8 +62,9 @@ class DatabaseSeeder extends Seeder
         );
 
         $admin = User::updateOrCreate(
-            ['id_number' => 'ADM-2015-001'],
+            ['email' => 'admin@campus.edu'],
             [
+                'id_number' => '2015100001',
                 'name' => 'System Administrator',
                 'email' => 'admin@campus.edu',
                 'password' => Hash::make('admin123'),

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { reservationsApi } from '../api/client';
+import EnrollStudentModal from './EnrollStudentModal';
 import {
     ShieldCheck,
     CheckCircle2,
@@ -9,6 +10,7 @@ import {
     RotateCcw,
     Send,
     User,
+    UserPlus,
     Search,
     RefreshCw,
     X,
@@ -24,6 +26,7 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
     const [statusFilter, setStatusFilter] = useState('all');
     const [searchCode, setSearchCode] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
+    const [enrollModalOpen, setEnrollModalOpen] = useState(false);
 
     // Return check-in modal state
     const [checkinModalRental, setCheckinModalRental] = useState(null);
@@ -118,13 +121,24 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
                         </div>
                     </div>
 
-                    <button
-                        onClick={fetchRentals}
-                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-colors self-start sm:self-auto shadow-xs"
-                    >
-                        <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                        Refresh Desk
-                    </button>
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                        <button
+                            onClick={fetchRentals}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-colors shadow-xs"
+                            title="Refresh records"
+                        >
+                            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                            <span className="hidden sm:inline">Refresh Desk</span>
+                        </button>
+
+                        <button
+                            onClick={() => setEnrollModalOpen(true)}
+                            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-ustp-navy hover:bg-ustp-navy-hover text-white shadow-xs transition-colors"
+                        >
+                            <UserPlus className="w-3.5 h-3.5 text-ustp-gold" />
+                            <span>+ Enroll Student</span>
+                        </button>
+                    </div>
                 </div>
 
                 {/* Metrics Cards */}
@@ -392,13 +406,21 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
                                     className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors"
                                 >
                                     <CheckCircle2 className="w-3.5 h-3.5" />
-                                    {actionLoading ? 'Updating Atlas...' : 'Complete Return Check-in'}
+                                    {actionLoading ? 'Processing Return...' : 'Complete Return Check-in'}
                                 </button>
                             </div>
                         </form>
                     </div>
                 </div>
             )}
+            {/* In-Person Student Enrollment Modal */}
+            <EnrollStudentModal
+                isOpen={enrollModalOpen}
+                onClose={() => setEnrollModalOpen(false)}
+                onSuccess={() => {
+                    fetchRentals();
+                }}
+            />
         </div>
     );
 }

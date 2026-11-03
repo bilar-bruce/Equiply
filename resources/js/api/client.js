@@ -99,4 +99,27 @@ export const reservationsApi = {
     },
 };
 
+export const adminApi = {
+    listUsers: async (params = {}) => {
+        const res = await api.get('/admin/users', { params });
+        return res.data;
+    },
+    provisionUser: async (data) => {
+        const res = await api.post('/admin/users', data);
+        return res.data;
+    },
+    updateStatus: async (id, status) => {
+        const res = await api.patch(`/admin/users/${id}/status`, { status });
+        return res.data;
+    },
+    updatePeerLender: async (id, isPeerLender) => {
+        const res = await api.patch(`/admin/users/${id}/peer-lender`, { is_peer_lender: isPeerLender });
+        return res.data;
+    },
+    updateRole: async (id, role) => {
+        const res = await api.patch(`/admin/users/${id}/role`, { role });
+        return res.data;
+    },
+};
+
 export default api;

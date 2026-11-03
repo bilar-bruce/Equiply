@@ -5,6 +5,7 @@ import {
     Layers,
     Clock,
     ShieldCheck,
+    Users,
     LogOut,
     LogIn,
     Sun,
@@ -14,10 +15,12 @@ import {
     Package
 } from 'lucide-react';
 
-export default function Sidebar({ activeTab, setActiveTab, onOpenAuthModal }) {
-    const { user, isAuthenticated, logout, isCustodian } = useAuth();
+export default function Sidebar({ activeTab, setActiveTab, onNavigateToLogin, onOpenAuthModal }) {
+    const { user, isAuthenticated, logout, isCustodian, isAdmin } = useAuth();
     const { theme, isDark, toggleTheme } = useTheme();
     const [mobileOpen, setMobileOpen] = useState(false);
+
+    const handleLoginClick = onNavigateToLogin || onOpenAuthModal;
 
     const handleNavClick = (tab) => {
         setActiveTab(tab);
@@ -25,6 +28,7 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenAuthModal }) {
     };
 
     // Navigation items: Custodian Desk is strictly restricted to authenticated staff (custodian/admin)
+    // Account Management is strictly restricted to authenticated admins
     const navItems = [
         {
             id: 'catalog',
@@ -48,6 +52,17 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenAuthModal }) {
                       icon: ShieldCheck,
                       badge: 'STAFF',
                       desc: 'Check-in & returns',
+                  },
+              ]
+            : []),
+        ...(isAuthenticated && isAdmin
+            ? [
+                  {
+                      id: 'admin-users',
+                      label: 'Account Management',
+                      icon: Users,
+                      badge: 'ADMIN',
+                      desc: 'Student & staff provisioning',
                   },
               ]
             : []),
@@ -87,7 +102,7 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenAuthModal }) {
                                 </span>
                             </div>
                             <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                                Campus Equipment Nexus
+                                Campus Equipment Portal
                             </p>
                         </div>
                     </div>
@@ -100,17 +115,6 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenAuthModal }) {
                     >
                         <X className="w-5 h-5" />
                     </button>
-                </div>
-
-                {/* System Status Flat Pill */}
-                <div className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px]">
-                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 font-medium">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <span>Atlas ACID Engine</span>
-                    </div>
-                    <span className="font-mono text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                        ONLINE
-                    </span>
                 </div>
 
                 {/* Navigation Links */}
@@ -247,11 +251,11 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenAuthModal }) {
                             </span>
                         </div>
                         <button
-                            onClick={onOpenAuthModal}
+                            onClick={handleLoginClick}
                             className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-ustp-navy hover:bg-ustp-navy-hover text-white text-xs font-bold shadow-xs transition-colors"
                         >
                             <LogIn className="w-4 h-4 text-ustp-gold" />
-                            Sign In / Register
+                            Sign In to Portal
                         </button>
                     </div>
                 )}

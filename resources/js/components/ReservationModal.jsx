@@ -91,7 +91,7 @@ export default function ReservationModal({ item, onClose, onSuccess }) {
                                     {item.item_code}
                                 </span>
                                 <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
-                                    ACID Transaction Lock
+                                    Guaranteed Campus Allocation
                                 </span>
                             </div>
                             <h2 className="text-lg font-bold text-slate-900 dark:text-white font-['Outfit']">
@@ -110,7 +110,7 @@ export default function ReservationModal({ item, onClose, onSuccess }) {
                         <div className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2">
                             <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
                             <div>
-                                <span className="font-bold">Transaction Aborted:</span> {error}
+                                <span className="font-bold">Reservation Unsuccessful:</span> {error}
                             </div>
                         </div>
                     )}
@@ -181,7 +181,7 @@ export default function ReservationModal({ item, onClose, onSuccess }) {
                             <input
                                 type="text"
                                 required
-                                placeholder="Identification reference / serial / deposit amount..."
+                                placeholder="Student ID (e.g. 2024300616) or cash deposit amount..."
                                 value={collateralRef}
                                 onChange={(e) => setCollateralRef(e.target.value)}
                                 className="w-full px-3 py-2 rounded-xl text-xs flat-input"

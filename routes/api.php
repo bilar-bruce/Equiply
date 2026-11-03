@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ItemController;
 use App\Http\Controllers\Api\ReservationController;
@@ -46,5 +47,14 @@ Route::middleware('auth:sanctum')->group(function () {
         // Custodian endpoints
         Route::post('/{id}/checkout', [ReservationController::class, 'checkout']);
         Route::post('/{id}/checkin', [ReservationController::class, 'checkin']);
+    });
+
+    // Facility Administration & Account Provisioning
+    Route::prefix('admin')->group(function () {
+        Route::get('/users', [AdminController::class, 'index']);
+        Route::post('/users', [AdminController::class, 'store']);
+        Route::patch('/users/{id}/status', [AdminController::class, 'updateStatus']);
+        Route::patch('/users/{id}/peer-lender', [AdminController::class, 'updatePeerLender']);
+        Route::patch('/users/{id}/role', [AdminController::class, 'updateRole']);
     });
 });

@@ -5,27 +5,37 @@ import Sidebar from './components/Sidebar';
 import CatalogView from './components/CatalogView';
 import CustodianDashboard from './components/CustodianDashboard';
 import MyRentalsView from './components/MyRentalsView';
+import AdminUsersView from './components/AdminUsersView';
 import SpecsModal from './components/SpecsModal';
 import ReservationModal from './components/ReservationModal';
-import AuthModal from './components/AuthModal';
+import GuestPromptModal from './components/GuestPromptModal';
+import LoginPage from './components/LoginPage';
 import { CheckCircle2, Layers } from 'lucide-react';
 
-function MainLayout() {
-    const { user, isAuthenticated, isCustodian } = useAuth();
+function MainLayout({ onNavigateToLogin }) {
+    const { user, isAuthenticated, isCustodian, isAdmin } = useAuth();
     const [activeTab, setActiveTab] = useState('catalog');
     const [specsItem, setSpecsItem] = useState(null);
     const [reserveItem, setReserveItem] = useState(null);
-    const [authModalOpen, setAuthModalOpen] = useState(false);
+    const [guestPromptItem, setGuestPromptItem] = useState(null);
     const [refreshKey, setRefreshKey] = useState(0);
     const [toastMessage, setToastMessage] = useState(null);
 
-    // Guard Custodian Desk tab strictly to authenticated custodians
+    // Guard Custodian Desk tab strictly to authenticated custodians/admins
     useEffect(() => {
         if (activeTab === 'custodian' && (!isAuthenticated || !isCustodian)) {
             setActiveTab('catalog');
             showToast('Access restricted: Custodian credentials required.');
         }
     }, [activeTab, isAuthenticated, isCustodian]);
+
+    // Guard Account Management tab strictly to authenticated admins
+    useEffect(() => {
+        if (activeTab === 'admin-users' && (!isAuthenticated || !isAdmin)) {
+            setActiveTab('catalog');
+            showToast('Access restricted: Administrator credentials required.');
+        }
+    }, [activeTab, isAuthenticated, isAdmin]);
 
     const showToast = (msg) => {
         setToastMessage(msg);
@@ -34,8 +44,7 @@ function MainLayout() {
 
     const handleOpenReserve = (item) => {
         if (!isAuthenticated) {
-            setAuthModalOpen(true);
-            showToast('Please sign in with your USTP ID to reserve equipment.');
+            setGuestPromptItem(item);
             return;
         }
         setReserveItem(item);
@@ -43,7 +52,7 @@ function MainLayout() {
 
     const handleReservationSuccess = (rental) => {
         setRefreshKey((prev) => prev + 1);
-        showToast(`Reservation [${rental.rental_code}] created with ACID transaction lock!`);
+        showToast(`Reservation [${rental.rental_code}] confirmed successfully!`);
     };
 
     return (
@@ -52,7 +61,7 @@ function MainLayout() {
             <Sidebar
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
-                onOpenAuthModal={() => setAuthModalOpen(true)}
+                onNavigateToLogin={onNavigateToLogin}
             />
 
             {/* Main Content Area Container */}
@@ -72,7 +81,7 @@ function MainLayout() {
                             refreshKey={refreshKey}
                             onSelectSpecs={(item) => setSpecsItem(item)}
                             onOpenReserve={handleOpenReserve}
-                            onOpenAuthModal={() => setAuthModalOpen(true)}
+                            onOpenAuthModal={onNavigateToLogin}
                         />
                     </div>
 
@@ -80,7 +89,7 @@ function MainLayout() {
                         <MyRentalsView
                             refreshKey={refreshKey}
                             onRefreshTrigger={() => setRefreshKey((prev) => prev + 1)}
-                            onOpenAuthModal={() => setAuthModalOpen(true)}
+                            onNavigateToLogin={onNavigateToLogin}
                         />
                     </div>
 
@@ -92,18 +101,24 @@ function MainLayout() {
                             />
                         </div>
                     )}
+
+                    {isAuthenticated && isAdmin && (
+                        <div className={activeTab === 'admin-users' ? 'block' : 'hidden'}>
+                            <AdminUsersView />
+                        </div>
+                    )}
                 </main>
 
-                {/* Flat Clean Footer */}
+                {/* Flat Clean University Footer */}
                 <footer className="border-t border-slate-200 dark:border-slate-800/80 py-5 text-center text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-[#120E2E]/60 mt-auto">
                     <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
                         <div className="flex items-center gap-2">
                             <Layers className="w-4 h-4 text-ustp-gold" />
-                            <span className="font-bold text-ustp-navy dark:text-slate-200">Equiply USTP Nexus</span>
-                            <span className="text-slate-400">• Laravel 12 + MongoDB Atlas Replica Set</span>
+                            <span className="font-bold text-ustp-navy dark:text-slate-200">Equiply • USTP Campus Equipment Portal</span>
+                            <span className="text-slate-400">• Facility Operations</span>
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                            Sanctum Token Auth • ACID Multi-Document Transactions • P2P Campus Lending
+                            © 2026 University of Science and Technology of Southern Philippines (USTP). All rights reserved.
                         </div>
                     </div>
                 </footer>
@@ -114,7 +129,7 @@ function MainLayout() {
                 <SpecsModal
                     item={specsItem}
                     onClose={() => setSpecsItem(null)}
-                    onReserve={(item) => setReserveItem(item)}
+                    onReserve={(item) => handleOpenReserve(item)}
                 />
             )}
 
@@ -126,12 +141,50 @@ function MainLayout() {
                 />
             )}
 
-            <AuthModal
-                isOpen={authModalOpen}
-                onClose={() => setAuthModalOpen(false)}
+            {/* Guest Action Prompt Modal */}
+            <GuestPromptModal
+                isOpen={!!guestPromptItem}
+                itemName={guestPromptItem?.name}
+                onClose={() => setGuestPromptItem(null)}
+                onNavigateToLogin={() => {
+                    setGuestPromptItem(null);
+                    onNavigateToLogin();
+                }}
             />
         </div>
     );
+}
+
+function AppContent() {
+    const { isAuthenticated, isLoading } = useAuth();
+    const [isGuestMode, setIsGuestMode] = useState(false);
+
+    // When authenticated, exit guest mode
+    useEffect(() => {
+        if (isAuthenticated) {
+            setIsGuestMode(false);
+        }
+    }, [isAuthenticated]);
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-canvas-light dark:bg-[#120E2E] flex flex-col items-center justify-center p-6 text-slate-800 dark:text-slate-100 font-['Inter',sans-serif]">
+                <div className="w-12 h-12 rounded-2xl bg-ustp-navy dark:bg-ustp-navy-deep border border-ustp-gold/30 flex items-center justify-center shadow-lg animate-pulse mb-3">
+                    <Layers className="w-6 h-6 text-ustp-gold" />
+                </div>
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    Loading Equiply Campus Portal...
+                </span>
+            </div>
+        );
+    }
+
+    // Unauthenticated visitor lands on split-screen LoginPage unless they chose Guest Mode
+    if (!isAuthenticated && !isGuestMode) {
+        return <LoginPage onContinueAsGuest={() => setIsGuestMode(true)} />;
+    }
+
+    return <MainLayout onNavigateToLogin={() => setIsGuestMode(false)} />;
 }
 
 class ErrorBoundary extends React.Component {
@@ -179,7 +232,7 @@ export default function MainApp() {
         <ErrorBoundary>
             <ThemeProvider>
                 <AuthProvider>
-                    <MainLayout />
+                    <AppContent />
                 </AuthProvider>
             </ThemeProvider>
         </ErrorBoundary>

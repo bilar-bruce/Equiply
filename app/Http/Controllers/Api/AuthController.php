@@ -51,38 +51,13 @@ class AuthController extends Controller
     }
 
     /**
-     * Register a new student account.
+     * Public self-registration endpoint (Disabled in favor of in-person facility provisioning).
      */
     public function register(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'id_number' => 'required|string|unique:users,id_number',
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|unique:users,email',
-            'password' => 'required|string|min:6|confirmed',
-            'contact_number' => 'required|string',
-            'is_peer_lender' => 'nullable|boolean',
-        ]);
-
-        $user = User::create([
-            'id_number' => $validated['id_number'],
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'role' => 'student',
-            'is_peer_lender' => $validated['is_peer_lender'] ?? false,
-            'contact_number' => $validated['contact_number'],
-            'status' => 'active',
-        ]);
-
-        $token = $user->createToken('equiply-web-client')->plainTextToken;
-
         return response()->json([
-            'message' => 'Account registered successfully',
-            'token' => $token,
-            'token_type' => 'Bearer',
-            'user' => new UserResource($user),
-        ], 201);
+            'message' => 'Public self-registration is disabled. Student accounts are issued in person at the Campus Facility Desk upon presenting a valid USTP School ID.',
+        ], 403);
     }
 
     /**

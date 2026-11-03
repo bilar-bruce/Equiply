@@ -12,11 +12,13 @@ import {
     Shield
 } from 'lucide-react';
 
-export default function MyRentalsView({ onRefreshTrigger, onOpenAuthModal, refreshKey }) {
+export default function MyRentalsView({ onRefreshTrigger, onNavigateToLogin, onOpenAuthModal, refreshKey }) {
     const { user, isAuthenticated } = useAuth();
     const [myRentals, setMyRentals] = useState([]);
     const [loading, setLoading] = useState(false);
     const [cancellingId, setCancellingId] = useState(null);
+
+    const handleLoginClick = onNavigateToLogin || onOpenAuthModal;
 
     const fetchMyRentals = async () => {
         if (!isAuthenticated) return;
@@ -53,7 +55,7 @@ export default function MyRentalsView({ onRefreshTrigger, onOpenAuthModal, refre
                 </p>
                 <div className="mt-6">
                     <button
-                        onClick={onOpenAuthModal}
+                        onClick={handleLoginClick}
                         className="px-6 py-2.5 rounded-xl text-xs font-bold bg-ustp-navy hover:bg-ustp-navy-hover text-white shadow-md shadow-ustp-navy/20 transition-all inline-flex items-center gap-2"
                     >
                         <CalendarCheck className="w-4 h-4 text-ustp-gold" />

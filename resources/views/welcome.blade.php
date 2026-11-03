@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="color-scheme" content="light">
-    <title>Equiply • USTP Campus Resource Nexus & P2P Gear Lending</title>
-    <meta name="description" content="USTP hybrid campus borrowing and verified peer-to-peer equipment rental platform with real-time atomic reservation engine.">
+    <title>Equiply • USTP Campus Equipment Portal</title>
+    <meta name="description" content="USTP hybrid campus borrowing and verified peer-to-peer equipment rental platform with real-time reservation management.">
 
     <script>
         (function() {

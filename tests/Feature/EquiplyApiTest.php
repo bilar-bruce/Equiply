@@ -22,7 +22,7 @@ class EquiplyApiTest extends TestCase
         $this->student = User::firstOrCreate(
             ['email' => 'alex.rivera@campus.edu'],
             [
-                'id_number' => '2023-10042',
+                'id_number' => '2024300616',
                 'name' => 'Alex Rivera',
                 'password' => Hash::make('password123'),
                 'role' => 'student',
@@ -35,7 +35,7 @@ class EquiplyApiTest extends TestCase
         $this->custodian = User::firstOrCreate(
             ['email' => 'custodian@campus.edu'],
             [
-                'id_number' => 'EMP-2019-041',
+                'id_number' => '2019100041',
                 'name' => 'Maria Santos',
                 'password' => Hash::make('custodian123'),
                 'role' => 'custodian',
@@ -129,7 +129,7 @@ class EquiplyApiTest extends TestCase
         $res = $this->postJson('/api/reservations', [
             'item_id' => (string) $this->availableItem->_id,
             'due_time' => now()->addHours(3)->toIso8601String(),
-            'collateral_held' => 'School ID: 2023-10042',
+            'collateral_held' => 'School ID: 2024300616',
             'condition_out' => 'Brand new test coat',
         ]);
 
