@@ -99,6 +99,11 @@ class ReservationController extends Controller
                 abort(404, 'Item not found.');
             }
 
+            // Prevent P2P lenders from reserving their own equipment
+            if ($item->owner_type === 'student' && (string) $item->owner_user_id === (string) $borrower->_id) {
+                abort(422, 'Self-reservation not permitted: You cannot reserve your own equipment listing.');
+            }
+
             // Strict availability constraint: Must be available
             if ($item->availability_stat !== 'available') {
                 abort(409, "Item [{$item->item_code}] is currently '{$item->availability_stat}' and cannot be reserved.");
@@ -118,9 +123,9 @@ class ReservationController extends Controller
             $dueTime = Carbon::parse($validated['due_time'])->toIso8601String();
             $requestedAt = now()->toIso8601String();
 
-            // Calculate estimated fee for P2P or facility items
-            $hours = max(1, Carbon::parse($requestedAt)->diffInHours(Carbon::parse($dueTime)));
-            $totalFee = round(((float) $item->rental_rate_hr) * $hours, 2);
+            // Calculate flat rental fee for borrowing checkout session
+            $flatRate = (float) ($item->rental_rate_flat ?? $item->rental_rate_hr ?? 30.00);
+            $totalFee = round($flatRate, 2);
 
             // Create immutable embedded document structure
             $rental = Rental::create([

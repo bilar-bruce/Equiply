@@ -52,7 +52,8 @@ class EquiplyApiTest extends TestCase
                 'category' => 'Laboratory Attire',
                 'owner_type' => 'facility',
                 'owner_user_id' => null,
-                'rental_rate_hr' => 0.00,
+                'rental_rate_flat' => 20.00,
+                'rental_rate_hr' => 20.00,
                 'deposit_required' => true,
                 'availability_stat' => 'available',
                 'tags' => ['testing', 'chemistry', 'safety'],
@@ -129,7 +130,7 @@ class EquiplyApiTest extends TestCase
         $res = $this->postJson('/api/reservations', [
             'item_id' => (string) $this->availableItem->_id,
             'due_time' => now()->addHours(3)->toIso8601String(),
-            'collateral_held' => 'School ID: 2024300616',
+            'collateral_held' => 'Academic Clearance Hold: 2024300616',
             'condition_out' => 'Brand new test coat',
         ]);
 
@@ -148,7 +149,7 @@ class EquiplyApiTest extends TestCase
         $conflictRes = $this->postJson('/api/reservations', [
             'item_id' => (string) $this->availableItem->_id,
             'due_time' => now()->addHours(5)->toIso8601String(),
-            'collateral_held' => 'Cash Deposit: 500',
+            'collateral_held' => 'Refundable Cash Deposit: ₱500.00',
         ]);
 
         $conflictRes->assertStatus(409);

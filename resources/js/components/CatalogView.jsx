@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { itemsApi } from '../api/client';
+import { useAuth } from '../context/AuthContext';
+import { formatPHP } from '../utils/currency';
 import {
     Search,
     RefreshCw,
@@ -16,7 +18,10 @@ import {
     Package,
     X,
     Sparkles,
-    CheckCircle2
+    CheckCircle2,
+    Tag,
+    Building2,
+    Users
 } from 'lucide-react';
 
 // Maps item characteristics to instantaneous SVG vector representations (0ms network delay)
@@ -129,6 +134,7 @@ function StatusBadge({ status }) {
 }
 
 export default function CatalogView({ onSelectSpecs, onOpenReserve, refreshKey }) {
+    const { user, isAuthenticated } = useAuth();
     const [items, setItems] = useState([]);
     const [categoryStats, setCategoryStats] = useState([]);
     const [categoryMeta, setCategoryMeta] = useState({ total_all: 0, total_available: 0 });
@@ -297,10 +303,10 @@ export default function CatalogView({ onSelectSpecs, onOpenReserve, refreshKey }
                             className="w-full px-3 py-2.5 rounded-xl text-xs flat-input font-medium"
                         >
                             <option value="all">All Availability States</option>
-                            <option value="available">🟢 Available Only</option>
-                            <option value="reserved">🟡 Reserved</option>
-                            <option value="rented">🔵 In Use / Rented</option>
-                            <option value="maintenance">🔴 Maintenance</option>
+                            <option value="available">Available Only</option>
+                            <option value="reserved">Reserved</option>
+                            <option value="rented">In Use / Rented</option>
+                            <option value="maintenance">Maintenance</option>
                         </select>
                     </div>
 
@@ -312,8 +318,8 @@ export default function CatalogView({ onSelectSpecs, onOpenReserve, refreshKey }
                             className="w-full px-3 py-2.5 rounded-xl text-xs flat-input font-medium"
                         >
                             <option value="all">All Ownership Types</option>
-                            <option value="facility">🏫 Campus Facility Only</option>
-                            <option value="student">🎒 Student P2P Only</option>
+                            <option value="facility">Campus Facility Only</option>
+                            <option value="student">Student P2P Only</option>
                         </select>
                     </div>
                 </div>
@@ -397,6 +403,11 @@ export default function CatalogView({ onSelectSpecs, onOpenReserve, refreshKey }
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                     {items.map((item) => {
                         const isAvailable = item.availability_stat === 'available';
+                        const isOwner =
+                            isAuthenticated &&
+                            user &&
+                            item.owner_type === 'student' &&
+                            String(item.owner_user_id) === String(user._id || user.id);
 
                         return (
                             <div
@@ -457,25 +468,22 @@ export default function CatalogView({ onSelectSpecs, onOpenReserve, refreshKey }
                                         <div className="flex items-center justify-between text-xs mb-3">
                                             <div className="flex items-center gap-1.5">
                                                 {item.owner_type === 'facility' ? (
-                                                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                                                        🏛️ Campus Facility
+                                                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium inline-flex items-center gap-1">
+                                                        <Building2 className="w-3.5 h-3.5 text-ustp-navy dark:text-ustp-gold" />
+                                                        Campus Facility
                                                     </span>
                                                 ) : (
-                                                    <span className="text-[11px] text-amber-700 dark:text-ustp-gold font-medium truncate max-w-[130px]">
-                                                        🎒 P2P: {item.owner?.name || 'Student'}
+                                                    <span className="text-[11px] text-amber-700 dark:text-ustp-gold font-medium truncate max-w-[130px] inline-flex items-center gap-1">
+                                                        <Users className="w-3.5 h-3.5 text-amber-600 dark:text-ustp-gold shrink-0" />
+                                                        P2P: {item.owner?.name || 'Student'}
                                                     </span>
                                                 )}
                                             </div>
                                             <div className="font-bold font-mono">
-                                                {item.rental_rate_hr > 0 ? (
-                                                    <span className="text-emerald-600 dark:text-emerald-400">
-                                                        ${item.rental_rate_hr.toFixed(2)}/hr
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded text-[10px]">
-                                                        FREE LOAN
-                                                    </span>
-                                                )}
+                                                <span className="text-emerald-600 dark:text-emerald-400">
+                                                    {formatPHP(item.rental_rate_flat ?? item.rental_rate_hr ?? 30)}
+                                                </span>
+                                                <span className="text-[10px] text-slate-400 font-normal ml-0.5">flat</span>
                                             </div>
                                         </div>
 
@@ -489,18 +497,28 @@ export default function CatalogView({ onSelectSpecs, onOpenReserve, refreshKey }
                                                 Specs
                                             </button>
 
-                                            <button
-                                                disabled={!isAvailable}
-                                                onClick={() => onOpenReserve(item)}
-                                                className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                                                    isAvailable
-                                                        ? 'bg-ustp-navy hover:bg-ustp-navy-hover text-white shadow-ustp-navy/20'
-                                                        : 'bg-slate-100 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-200 dark:border-slate-800'
-                                                }`}
-                                            >
-                                                <CalendarCheck className="w-3.5 h-3.5 text-ustp-gold" />
-                                                {isAvailable ? 'Reserve' : 'Locked'}
-                                            </button>
+                                            {isOwner ? (
+                                                <div
+                                                    title="You own this equipment listing"
+                                                    className="flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl text-[11px] font-bold bg-amber-500/10 text-amber-700 dark:text-ustp-gold border border-amber-500/30 select-none text-center"
+                                                >
+                                                    <Tag className="w-3.5 h-3.5 shrink-0 text-ustp-gold" />
+                                                    <span className="truncate">Your Listing</span>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    disabled={!isAvailable}
+                                                    onClick={() => onOpenReserve(item)}
+                                                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-xs ${
+                                                        isAvailable
+                                                            ? 'bg-ustp-navy hover:bg-ustp-navy-hover text-white shadow-ustp-navy/20'
+                                                            : 'bg-slate-100 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-200 dark:border-slate-800'
+                                                    }`}
+                                                >
+                                                    <CalendarCheck className="w-3.5 h-3.5 text-ustp-gold" />
+                                                    {isAvailable ? 'Reserve' : 'Locked'}
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

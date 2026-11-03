@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { reservationsApi } from '../api/client';
+import { formatPHP } from '../utils/currency';
 import {
     Clock,
     CalendarCheck,
@@ -144,7 +145,7 @@ export default function MyRentalsView({ onRefreshTrigger, onNavigateToLogin, onO
                                         {rental.item_snapshot?.name || rental.item?.name || 'Equipment'}
                                     </h3>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs pt-1">
                                         <div>
                                             <span className="text-slate-500 dark:text-slate-400 text-[11px] block">Due Return:</span>
                                             <span className="font-semibold text-slate-800 dark:text-slate-200">
@@ -153,9 +154,16 @@ export default function MyRentalsView({ onRefreshTrigger, onNavigateToLogin, onO
                                         </div>
 
                                         <div>
+                                            <span className="text-slate-500 dark:text-slate-400 text-[11px] block">Rental Fee:</span>
+                                            <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                                                {formatPHP(rental.financials?.total_fee ?? 30)}
+                                            </span>
+                                        </div>
+
+                                        <div>
                                             <span className="text-slate-500 dark:text-slate-400 text-[11px] block">Collateral Held:</span>
                                             <span className="font-mono text-ustp-navy dark:text-ustp-gold font-semibold">
-                                                {rental.financials?.collateral_held || 'ID Declared'}
+                                                {rental.financials?.collateral_held || 'Academic Clearance Hold'}
                                             </span>
                                         </div>
                                     </div>

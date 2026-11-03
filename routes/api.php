@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ItemController;
+use App\Http\Controllers\Api\PeerLenderController;
 use App\Http\Controllers\Api\ReservationController;
 use Illuminate\Support\Facades\Route;
 
@@ -57,4 +58,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/users/{id}/peer-lender', [AdminController::class, 'updatePeerLender']);
         Route::patch('/users/{id}/role', [AdminController::class, 'updateRole']);
     });
+
+    // Dedicated Peer Lender Portal Operations
+    Route::prefix('peer-lender')->group(function () {
+        Route::get('/listings', [PeerLenderController::class, 'index']);
+        Route::post('/listings', [PeerLenderController::class, 'store']);
+        Route::patch('/listings/{id}', [PeerLenderController::class, 'update']);
+        Route::post('/listings/{id}/recall', [PeerLenderController::class, 'toggleRecall']);
+    });
+
+    // Custodian P2P Verification & Intake Endpoint
+    Route::post('/custodian/items/{id}/verify-intake', [PeerLenderController::class, 'verifyIntake']);
 });

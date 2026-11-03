@@ -122,4 +122,27 @@ export const adminApi = {
     },
 };
 
+export const peerLenderApi = {
+    getListings: async () => {
+        const res = await api.get('/peer-lender/listings');
+        return res.data;
+    },
+    createListing: async (data) => {
+        const res = await api.post('/peer-lender/listings', data);
+        return res.data;
+    },
+    updateListing: async (id, data) => {
+        const res = await api.patch(`/peer-lender/listings/${id}`, data);
+        return res.data;
+    },
+    toggleRecall: async (id) => {
+        const res = await api.post(`/peer-lender/listings/${id}/recall`);
+        return res.data;
+    },
+    verifyIntake: async (id) => {
+        const res = await api.post(`/custodian/items/${id}/verify-intake`);
+        return res.data;
+    },
+};
+
 export default api;

@@ -126,7 +126,7 @@ export default function LoginPage({ onContinueAsGuest }) {
                                     </h3>
                                 </div>
                                 <p className="text-xs text-slate-300 leading-relaxed">
-                                    Reserve gear allocations instantly using your verified 10-digit USTP Student ID (<span className="font-mono text-ustp-gold">2024######</span>) as held collateral.
+                                    Reserve gear allocations instantly using your verified 10-digit USTP Student ID (<span className="font-mono text-ustp-gold">2024######</span>) for an academic clearance guarantee, eliminating physical ID retention.
                                 </p>
                             </div>
                         </div>

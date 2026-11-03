@@ -6,6 +6,7 @@ import CatalogView from './components/CatalogView';
 import CustodianDashboard from './components/CustodianDashboard';
 import MyRentalsView from './components/MyRentalsView';
 import AdminUsersView from './components/AdminUsersView';
+import MyListingsView from './components/MyListingsView';
 import SpecsModal from './components/SpecsModal';
 import ReservationModal from './components/ReservationModal';
 import GuestPromptModal from './components/GuestPromptModal';
@@ -36,6 +37,14 @@ function MainLayout({ onNavigateToLogin }) {
             showToast('Access restricted: Administrator credentials required.');
         }
     }, [activeTab, isAuthenticated, isAdmin]);
+
+    // Guard Peer Lender My Listings tab strictly to authenticated peer lenders
+    useEffect(() => {
+        if (activeTab === 'my-listings' && (!isAuthenticated || !user?.is_peer_lender)) {
+            setActiveTab('catalog');
+            showToast('Access restricted: Peer lending privileges required.');
+        }
+    }, [activeTab, isAuthenticated, user]);
 
     const showToast = (msg) => {
         setToastMessage(msg);
@@ -92,6 +101,12 @@ function MainLayout({ onNavigateToLogin }) {
                             onNavigateToLogin={onNavigateToLogin}
                         />
                     </div>
+
+                    {isAuthenticated && user?.is_peer_lender && (
+                        <div className={activeTab === 'my-listings' ? 'block' : 'hidden'}>
+                            <MyListingsView />
+                        </div>
+                    )}
 
                     {isAuthenticated && isCustodian && (
                         <div className={activeTab === 'custodian' ? 'block' : 'hidden'}>

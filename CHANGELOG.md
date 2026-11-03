@@ -4,6 +4,53 @@ All notable changes and architectural updates to the Equiply project are documen
 
 ---
 
+## [0.4.0] - Milestone 8: Role-Based Functionality Verification & Peer Lending Lifecycle - 2026-11-03
+
+### 🌟 Overview
+Completed the peer lending operations lifecycle and rigorous multi-role functionality audit for Equiply:
+1. Enforced backend and frontend **P2P Self-Reservation Guards**, preventing students from reserving their own listed gear while displaying a distinct "Your Equipment Listing" badge.
+2. Built the **Dedicated Peer Lender Portal ("My Listings")** ([MyListingsView.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/MyListingsView.jsx)), featuring live metric tracking (Total Listed, Active Loans, Accrued Rental Earnings, Completed Borrows), desk intake protocol banners, rate management, and recall/archive safeguards.
+3. Implemented **Facility Desk P2P Intake Verification** ([PeerLenderController.php](file:///c:/Users/Lenovo/Documents/Equiply/app/Http/Controllers/Api/PeerLenderController.php) & [CustodianDashboard.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/CustodianDashboard.jsx)), allowing Custodians to physically verify, serial-tag, and activate student-submitted gear in the public catalog.
+4. Established a comprehensive automated role test matrix ([RoleFunctionalityAuditTest.php](file:///c:/Users/Lenovo/Documents/Equiply/tests/Feature/RoleFunctionalityAuditTest.php)) asserting complete behavioral specifications across all 5 campus roles: Guest, Student Borrower, Peer Lender, Custodian, and Administrator (21 passing tests, 212 assertions).
+
+---
+
+### 1. P2P Self-Reservation Guard & Catalog Badging (Phase 8.1)
+- **Backend Lockout ([ReservationController.php](file:///c:/Users/Lenovo/Documents/Equiply/app/Http/Controllers/Api/ReservationController.php))**:
+  - Gated the ACID transaction session to verify that `$item->owner_type === 'student'` and `owner_user_id !== borrower_id`.
+  - Aborts with HTTP 422 (`"Self-reservation not permitted: You cannot reserve your own equipment listing."`) if a peer lender attempts to borrow their own equipment.
+- **Frontend Catalog Badging ([CatalogView.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/CatalogView.jsx) & [SpecsModal.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/SpecsModal.jsx))**:
+  - Replaces the "Reserve" button with a static amber-gold badge (`"Your Listing"`) whenever the viewing student is the registered owner of the equipment.
+  - In `SpecsModal`, disables reservation dispatch and informs the student that they are the registered owner.
+
+---
+
+### 2. Dedicated Peer Lender Portal & Desk Intake Protocol (Phase 8.2)
+- **Peer Lender Operations Engine ([PeerLenderController.php](file:///c:/Users/Lenovo/Documents/Equiply/app/Http/Controllers/Api/PeerLenderController.php))**:
+  - `GET /api/peer-lender/listings`: Aggregates the student's personal items, rental histories, and earnings summary metrics.
+  - `POST /api/peer-lender/listings`: Registers draft equipment listings with initial status `pending_intake`.
+  - `PATCH /api/peer-lender/listings/{id}`: Enables rate updates while enforcing lockouts when an item is currently `reserved` or `rented`.
+  - `POST /api/peer-lender/listings/{id}/recall`: Soft-archives or restores items, strictly blocking withdrawals during active loan sessions.
+- **Peer Lender Interface ([MyListingsView.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/MyListingsView.jsx))**:
+  - Registered "My Listings" tab in [Sidebar.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/Sidebar.jsx), visible strictly to authenticated accounts with `is_peer_lender === true`.
+  - Added summary metric cards: Total Listed Gear, Active Loans, Accrued Rental Earnings, and Completed Borrows.
+  - Prominent USTP Facility Operations intake guidance banner instructing students to deliver gear to the desk for physical verification and vault storage.
+- **Custodian P2P Intake Verification ([CustodianDashboard.jsx](file:///c:/Users/Lenovo/Documents/Equiply/resources/js/components/CustodianDashboard.jsx))**:
+  - Added "P2P Intake Queue" tab allowing Custodians to review submitted student equipment and click "Verify & Accept Intake" (`POST /api/custodian/items/{id}/verify-intake`) to activate items into the public catalog.
+  - Enabled Custodians/Admins to assign verified student owners when cataloging student-owned equipment via `ItemController@store`.
+
+---
+
+### 3. Role Functionality Audit & Test Matrix (Phase 8.3)
+- Automated end-to-end role validation across the entire application ([RoleFunctionalityAuditTest.php](file:///c:/Users/Lenovo/Documents/Equiply/tests/Feature/RoleFunctionalityAuditTest.php) & [ReservationLifecycleTest.php](file:///c:/Users/Lenovo/Documents/Equiply/tests/Feature/ReservationLifecycleTest.php)):
+  - **Guest**: Public catalog search, category breakdown, specs inspection, and strict 401 reservation blocking.
+  - **Student Borrower**: Reserving facility/peer gear, inspecting personal borrowings, and cancelling pending reservations.
+  - **Peer Lender**: Accessing personal listings, registering intake drafts, calculating earnings, and verifying self-borrowing and active-loan recall lockouts.
+  - **Custodian Staff**: Desk operations, P2P intake verification, dispatch checkouts, return check-ins, and student enrollment.
+  - **Administrator**: Full custodian desk privileges, campus user account management, role changes, privilege toggles, and self-lockout protections.
+
+---
+
 ## [0.3.0] - Milestone 6 & 7: Admin Account Management, Branding Scrub & Split-Screen Authentication Portal - 2026-11-03
 
 ### 🌟 Overview

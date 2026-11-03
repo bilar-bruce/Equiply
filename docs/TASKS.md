@@ -82,3 +82,55 @@
   - [x] Replace the popup modal (`AuthModal.jsx`) with full view navigation between `LoginPage` and `MainLayout`.
   - [x] Wire guest prompts: guests can browse the catalog and inspect specs, with a gentle redirect to login when attempting to reserve.
   - [x] Persistent "Sign In" button in the sidebar when in Guest Mode for instant authentication at any point.
+
+---
+
+## Milestone 8: Role-Based Functionality Verification & Peer Lending Lifecycle
+- [x] **Phase 8.1: P2P Self-Reservation Guard & Catalog Badging**
+  - [x] Backend: Update `ReservationController@store` to block self-reservations (`owner_user_id === borrower_id`) with HTTP 422.
+  - [x] Frontend: Replace "Reserve" button in `CatalogView.jsx` with a static "Your Equipment Listing" badge when `item.owner_user_id === user._id`.
+  - [x] Automated Test: Assert HTTP 422 on self-reservation attempt in `tests/Feature/ReservationLifecycleTest.php`.
+- [x] **Phase 8.2: Dedicated Peer Lender Portal ("My Listings")**
+  - [x] Sidebar Navigation: Register "My Listings" tab in `Sidebar.jsx` (strictly visible when `user.is_peer_lender === true`).
+  - [x] Lender Summary Metrics: Implement metric cards (Total Listed Gear, Active Loans, Accrued Rental Earnings).
+  - [x] Facility Intake Guidance: Prominent banner detailing physical equipment intake at the Facility Operations Desk.
+  - [x] Inventory Management Grid: Display listed items with status badges, rate controls, and borrow history.
+  - [x] Recall & Mutation Safeguards: Enforce backend and frontend lockouts preventing edit/delist if item is currently `reserved` or `in_use`.
+  - [x] Custodian P2P Tagging: Ensure Custodian Desk / Admin can assign verified student owners when cataloging incoming `owner_type: 'student'` gear.
+- [x] **Phase 8.3: Comprehensive Role Functionality Audit & Test Matrix**
+  - [x] **Guest Role:** Catalog browsing, category filtering, search, specs modal, and login prompts.
+  - [x] **Student Borrower:** Search/reserve facility & peer items, view active loans, cancel pending reservations.
+  - [x] **Peer Lender:** View listed items, review active borrowers, check accrued earnings, and verify self-borrowing lockout.
+  - [x] **Custodian Staff:** Check-out dispatch, check-in inspections, collateral return receipts, and student enrollment.
+  - [x] **Administrator:** Full custodian rights + account management, status toggles, peer privilege granting, and lockout protection.
+
+---
+
+## Milestone 9: Institutional Policy Alignment (Flat Rental Rates, Philippine Peso Currency, ID-Free Collateral & Vector Icons)
+- [x] **Phase 9.1: Flat Rate Economic Model & Philippine Peso (₱) Migration**
+  - [x] Schema & Models: Refactor item rate fields from hourly (`rental_rate_hr`) to flat borrowing fee (`rental_rate_flat` or flat session standard) across `Item.php` and `Rental.php`.
+  - [x] Database Seeders: Re-seed facility gear with realistic flat fees in PHP (Casio Scientific Calculator: ₱30.00, Graphing: ₱50.00, Lab Coat: ₱20.00, Goggles: ₱10.00, Extension Cord: ₱15.00, Multimeter: ₱35.00, Soldering Station: ₱50.00, P2P Arduino: ₱45.00).
+  - [x] Reservation Engine: Update `ReservationController@store` to compute flat fee per checkout without dynamic hourly multiplication.
+  - [x] Centralized Currency Helper: Create `resources/js/utils/currency.js` providing `formatPHP()` for consistent `₱` formatting.
+  - [x] Frontend Updates: Replace all occurrences of `$`, `FREE (Facility)`, and `FREE LOAN` across `CatalogView.jsx`, `SpecsModal.jsx`, `ReservationModal.jsx`, `CustodianDashboard.jsx`, `MyListingsView.jsx`, and `MyRentalsView.jsx`.
+- [x] **Phase 9.2: Authorized Collateral Policy (Cash Deposit & Academic Clearance Hold)**
+  - [x] Deprecate unauthorized collateral: Completely remove `"School ID"` and `"Driver's License"` from all interfaces and controllers.
+  - [x] Implement Dual Authorized Collateral Modes:
+    - `Academic Clearance Hold (Digital Guarantee)`: Verified student liability undertaking tied to 10-digit ID record.
+    - `Refundable Cash Deposit`: Refundable physical cash bond held in facility custody.
+  - [x] Update `ReservationModal.jsx`: Redesign collateral selection with clear descriptive badges, input validations, and digital undertaking disclosure.
+  - [x] Update `CustodianDashboard.jsx`: Display and process verified collateral types during checkout and check-in return receipts.
+- [x] **Phase 9.3: Vector Graphic Standards (Complete Emoji Purge)**
+  - [x] Eliminate all Unicode emojis (`🏫`, `🎒`, `🏛️`, `⚠️`, `✅`, `🟢`, `🟡`, `🔵`, `🔴`) across components.
+  - [x] Replace with semantic Lucide React vector icons (`Building2`, `Users`, `ShieldAlert`, `ShieldCheck`, `Banknote`, `FileCheck`) in:
+    - `CatalogView.jsx` (ownership badges, dropdown filters).
+    - `SpecsModal.jsx` (ownership, rental rates, collateral requirement banner).
+    - `ReservationModal.jsx` (collateral selection, fee breakdown).
+    - `CustodianDashboard.jsx` (inventory tags, checkout logs).
+    - `MyListingsView.jsx` (status badges, lender cards).
+- [x] **Phase 9.4: Database Reseed & Test Suite Verification**
+  - [x] Update existing database records or reseed with `php artisan db:seed`.
+  - [x] Update test assertions in `tests/Feature/ReservationLifecycleTest.php` and `tests/Feature/EquiplyApiTest.php` to reflect flat rates, PHP currency, and new collateral constraints.
+  - [x] Run full test suite to guarantee zero regressions.
+
+

@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { reservationsApi } from '../api/client';
+import { formatPHP } from '../utils/currency';
 import {
     X,
     CalendarCheck,
     Clock,
     Shield,
-    DollarSign,
+    ShieldCheck,
+    Banknote,
     AlertCircle,
-    CheckCircle2,
-    Lock
+    CheckCircle2
 } from 'lucide-react';
 
 export default function ReservationModal({ item, onClose, onSuccess }) {
@@ -22,9 +23,11 @@ export default function ReservationModal({ item, onClose, onSuccess }) {
         return d.toISOString().slice(0, 16);
     };
 
+    const flatRate = Number(item?.rental_rate_flat ?? item?.rental_rate_hr ?? 30);
+
     const [dueTime, setDueTime] = useState(getDefaultDue(3));
-    const [collateralType, setCollateralType] = useState('School ID');
-    const [collateralRef, setCollateralRef] = useState(user?.id_number || '');
+    const [collateralType, setCollateralType] = useState('Academic Clearance Hold');
+    const [cashAmount, setCashAmount] = useState('100.00');
     const [conditionOut, setConditionOut] = useState('Good condition, verified complete');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
@@ -36,24 +39,15 @@ export default function ReservationModal({ item, onClose, onSuccess }) {
         setDueTime(getDefaultDue(hours));
     };
 
-    // Calculate estimated duration & fees
-    const getCalculatedFees = () => {
-        const start = Date.now();
-        const end = new Date(dueTime).getTime();
-        const diffHours = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60)));
-        const rate = Number(item.rental_rate_hr) || 0;
-        const total = (rate * diffHours).toFixed(2);
-        return { diffHours, total };
-    };
-
-    const { diffHours, total } = getCalculatedFees();
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setSubmitting(true);
         setError(null);
 
-        const collateralHeldString = `${collateralType}: ${collateralRef}`;
+        const collateralHeldString =
+            collateralType === 'Academic Clearance Hold'
+                ? `Academic Clearance Hold: Student ID ${user?.id_number || 'Enrolled'}`
+                : `Refundable Cash Deposit: ₱${Number(cashAmount).toFixed(2)}`;
 
         try {
             const res = await reservationsApi.create({
@@ -98,6 +92,7 @@ export default function ReservationModal({ item, onClose, onSuccess }) {
                                 Reserve: {item.name}
                             </h2>
                         </div>
+
                         <button
                             onClick={onClose}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
@@ -157,35 +152,66 @@ export default function ReservationModal({ item, onClose, onSuccess }) {
                             />
                         </div>
 
-                        {/* Collateral Declaration */}
+                        {/* Collateral Selection (Authorized University Policies Only) */}
                         <div>
                             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                                 Collateral Declaration <span className="text-rose-500">*</span>
                             </label>
-                            <div className="grid grid-cols-3 gap-2 mb-2">
-                                {['School ID', 'Cash Deposit', "Driver's License"].map((type) => (
-                                    <button
-                                        type="button"
-                                        key={type}
-                                        onClick={() => setCollateralType(type)}
-                                        className={`py-1.5 px-2 text-xs font-semibold rounded-lg border transition-all text-center ${
-                                            collateralType === type
-                                                ? 'bg-ustp-navy text-white border-ustp-navy dark:border-ustp-gold/50 shadow-xs'
-                                                : 'bg-slate-100 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                                        }`}
-                                    >
-                                        {type}
-                                    </button>
-                                ))}
+                            <div className="grid grid-cols-2 gap-2 mb-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setCollateralType('Academic Clearance Hold')}
+                                    className={`py-2 px-3 text-xs font-semibold rounded-xl border transition-all text-left flex items-center gap-2 ${
+                                        collateralType === 'Academic Clearance Hold'
+                                            ? 'bg-ustp-navy text-white border-ustp-navy dark:border-ustp-gold/50 shadow-xs'
+                                            : 'bg-slate-50 dark:bg-slate-850 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
+                                    }`}
+                                >
+                                    <ShieldCheck className="w-4 h-4 shrink-0 text-ustp-gold" />
+                                    <div>
+                                        <div className="font-bold text-[11px]">Academic Clearance Hold</div>
+                                        <div className="text-[10px] opacity-80">Institutional Guarantee</div>
+                                    </div>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setCollateralType('Refundable Cash Deposit')}
+                                    className={`py-2 px-3 text-xs font-semibold rounded-xl border transition-all text-left flex items-center gap-2 ${
+                                        collateralType === 'Refundable Cash Deposit'
+                                            ? 'bg-ustp-navy text-white border-ustp-navy dark:border-ustp-gold/50 shadow-xs'
+                                            : 'bg-slate-50 dark:bg-slate-850 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
+                                    }`}
+                                >
+                                    <Banknote className="w-4 h-4 shrink-0 text-emerald-500" />
+                                    <div>
+                                        <div className="font-bold text-[11px]">Refundable Cash Deposit</div>
+                                        <div className="text-[10px] opacity-80">Returned at desk</div>
+                                    </div>
+                                </button>
                             </div>
-                            <input
-                                type="text"
-                                required
-                                placeholder="Student ID (e.g. 2024300616) or cash deposit amount..."
-                                value={collateralRef}
-                                onChange={(e) => setCollateralRef(e.target.value)}
-                                className="w-full px-3 py-2 rounded-xl text-xs flat-input"
-                            />
+
+                            {collateralType === 'Academic Clearance Hold' ? (
+                                <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
+                                    <span className="font-bold">Digital Undertaking:</span> By confirming, you pledge your verified campus standing (ID: <span className="font-mono font-bold">{user?.id_number}</span>). Failure to return or damage to equipment initiates an official property clearance hold on your academic records until settled.
+                                </div>
+                            ) : (
+                                <div>
+                                    <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">
+                                        Cash Bond Amount (₱)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="10"
+                                        step="10"
+                                        required
+                                        value={cashAmount}
+                                        onChange={(e) => setCashAmount(e.target.value)}
+                                        className="w-full px-3 py-2 rounded-xl text-xs font-mono flat-input"
+                                        placeholder="Deposit amount in Peso..."
+                                    />
+                                </div>
+                            )}
                         </div>
 
                         {/* Outgoing Condition */}
@@ -202,24 +228,26 @@ export default function ReservationModal({ item, onClose, onSuccess }) {
                         </div>
 
                         {/* Fee Breakdown & Transaction Notice */}
-                        <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 text-xs space-y-1">
+                        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 text-xs space-y-1.5">
                             <div className="flex justify-between items-center text-slate-600 dark:text-slate-300">
-                                <span>Estimated Duration:</span>
-                                <span className="font-semibold text-slate-900 dark:text-white font-mono">{diffHours} Hour(s)</span>
+                                <span>Pricing Model:</span>
+                                <span className="font-semibold text-slate-900 dark:text-white">Flat Rental Fee (Per Checkout)</span>
                             </div>
                             <div className="flex justify-between items-center text-slate-600 dark:text-slate-300">
-                                <span>Hourly Rate:</span>
-                                <span className="font-mono text-emerald-600 dark:text-emerald-400">
-                                    {item.rental_rate_hr > 0 ? `$${item.rental_rate_hr}/hr` : 'Free Facility Loan'}
+                                <span>Rental Rate:</span>
+                                <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                                    {formatPHP(flatRate)}
                                 </span>
                             </div>
-                            <div className="border-t border-slate-200 dark:border-slate-800 pt-1.5 flex justify-between items-center font-bold text-sm">
-                                <span className="text-slate-900 dark:text-white">Estimated Total:</span>
-                                <span className="font-mono text-emerald-600 dark:text-emerald-400">${total}</span>
+                            <div className="border-t border-slate-200 dark:border-slate-800 pt-2 flex justify-between items-center font-bold text-sm">
+                                <span className="text-slate-900 dark:text-white">Total Rental Due:</span>
+                                <span className="font-mono text-emerald-600 dark:text-emerald-400 text-base">
+                                    {formatPHP(flatRate)}
+                                </span>
                             </div>
                             <div className="pt-2 flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
-                                <Lock className="w-3 h-3 text-ustp-gold shrink-0" />
-                                <span>Protected by MongoDB Replica Set multi-document ACID transaction.</span>
+                                <ShieldCheck className="w-3.5 h-3.5 text-ustp-gold shrink-0" />
+                                <span>Authorized USTP Campus Equipment Custody Protocol.</span>
                             </div>
                         </div>
 
@@ -239,7 +267,7 @@ export default function ReservationModal({ item, onClose, onSuccess }) {
                                 className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold bg-ustp-navy hover:bg-ustp-navy-hover text-white shadow-xs transition-colors disabled:opacity-50"
                             >
                                 <CalendarCheck className="w-4 h-4 text-ustp-gold" />
-                                {submitting ? 'Locking Reservation...' : 'Confirm Atomic Reservation'}
+                                {submitting ? 'Confirming Reservation...' : 'Confirm Equipment Reservation'}
                             </button>
                         </div>
                     </form>

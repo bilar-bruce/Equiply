@@ -12,7 +12,8 @@ import {
     Moon,
     Menu,
     X,
-    Package
+    Package,
+    Tag
 } from 'lucide-react';
 
 export default function Sidebar({ activeTab, setActiveTab, onNavigateToLogin, onOpenAuthModal }) {
@@ -44,6 +45,17 @@ export default function Sidebar({ activeTab, setActiveTab, onNavigateToLogin, on
             badge: null,
             desc: 'Active loans & history',
         },
+        ...(isAuthenticated && user?.is_peer_lender
+            ? [
+                  {
+                      id: 'my-listings',
+                      label: 'My Listings',
+                      icon: Tag,
+                      badge: 'LENDER',
+                      desc: 'Peer gear & earnings',
+                  },
+              ]
+            : []),
         ...(isAuthenticated && isCustodian
             ? [
                   {

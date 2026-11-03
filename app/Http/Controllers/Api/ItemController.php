@@ -141,7 +141,11 @@ class ItemController extends Controller
         ]);
 
         if ($validated['owner_type'] === 'student') {
-            $validated['owner_user_id'] = $user->_id;
+            if (($user->role === 'custodian' || $user->role === 'admin') && $request->filled('owner_user_id')) {
+                $validated['owner_user_id'] = $request->input('owner_user_id');
+            } else {
+                $validated['owner_user_id'] = $user->_id;
+            }
         } else {
             $validated['owner_user_id'] = null;
         }

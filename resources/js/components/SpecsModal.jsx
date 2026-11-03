@@ -1,10 +1,29 @@
 import React from 'react';
-import { X, Cpu, ShieldCheck, Tag, QrCode, DollarSign, CalendarCheck } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { formatPHP } from '../utils/currency';
+import {
+    X,
+    Cpu,
+    ShieldCheck,
+    ShieldAlert,
+    Tag,
+    CalendarCheck,
+    Building2,
+    Users
+} from 'lucide-react';
 
 export default function SpecsModal({ item, onClose, onReserve }) {
+    const { user, isAuthenticated } = useAuth();
     if (!item) return null;
 
     const isAvailable = item.availability_stat === 'available';
+    const isOwner =
+        isAuthenticated &&
+        user &&
+        item.owner_type === 'student' &&
+        String(item.owner_user_id) === String(user._id || user.id);
+
+    const flatRate = item.rental_rate_flat ?? item.rental_rate_hr ?? 30;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -50,21 +69,41 @@ export default function SpecsModal({ item, onClose, onReserve }) {
                     {/* Owner & Rates Information */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 my-5 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-xs">
                         <div>
-                            <span className="text-slate-500 dark:text-slate-400 text-[11px] block">Ownership</span>
-                            <span className="font-semibold text-slate-800 dark:text-slate-200 capitalize">
-                                {item.owner_type === 'facility' ? '🏫 Campus Facility' : '🎒 Student P2P'}
+                            <span className="text-slate-500 dark:text-slate-400 text-[11px] block mb-0.5">Ownership</span>
+                            <span className="font-semibold text-slate-800 dark:text-slate-200 inline-flex items-center gap-1.5">
+                                {item.owner_type === 'facility' ? (
+                                    <>
+                                        <Building2 className="w-3.5 h-3.5 text-ustp-navy dark:text-ustp-gold" />
+                                        Campus Facility
+                                    </>
+                                ) : (
+                                    <>
+                                        <Users className="w-3.5 h-3.5 text-amber-600 dark:text-ustp-gold" />
+                                        Student P2P
+                                    </>
+                                )}
                             </span>
                         </div>
                         <div>
-                            <span className="text-slate-500 dark:text-slate-400 text-[11px] block">Rental Rate</span>
+                            <span className="text-slate-500 dark:text-slate-400 text-[11px] block mb-0.5">Rental Rate</span>
                             <span className="font-semibold text-emerald-600 dark:text-emerald-400 font-mono">
-                                {item.rental_rate_hr > 0 ? `$${item.rental_rate_hr.toFixed(2)}/hr` : 'FREE (Facility)'}
+                                {formatPHP(flatRate)} <span className="text-[10px] font-normal text-slate-500">flat fee</span>
                             </span>
                         </div>
                         <div className="col-span-2 sm:col-span-1">
-                            <span className="text-slate-500 dark:text-slate-400 text-[11px] block">Collateral Required</span>
-                            <span className="font-semibold text-slate-800 dark:text-slate-200">
-                                {item.deposit_required ? '⚠️ ID or Cash Deposit' : '✅ Standard Student ID'}
+                            <span className="text-slate-500 dark:text-slate-400 text-[11px] block mb-0.5">Collateral Required</span>
+                            <span className="font-semibold text-slate-800 dark:text-slate-200 inline-flex items-center gap-1">
+                                {item.deposit_required ? (
+                                    <>
+                                        <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
+                                        Refundable Cash Deposit
+                                    </>
+                                ) : (
+                                    <>
+                                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                                        Academic Clearance Hold
+                                    </>
+                                )}
                             </span>
                         </div>
                     </div>
@@ -134,21 +173,28 @@ export default function SpecsModal({ item, onClose, onReserve }) {
                             Close
                         </button>
 
-                        <button
-                            disabled={!isAvailable}
-                            onClick={() => {
-                                onClose();
-                                onReserve(item);
-                            }}
-                            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                                isAvailable
-                                    ? 'bg-ustp-navy hover:bg-ustp-navy-hover text-white shadow-ustp-navy/20'
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-200 dark:border-slate-700'
-                            }`}
-                        >
-                            <CalendarCheck className="w-4 h-4 text-ustp-gold" />
-                            {isAvailable ? 'Proceed to Reservation' : 'Unavailable for Checkout'}
-                        </button>
+                        {isOwner ? (
+                            <div className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-500/10 text-amber-700 dark:text-ustp-gold border border-amber-500/30">
+                                <Tag className="w-4 h-4 text-ustp-gold" />
+                                <span>Your Equipment Listing</span>
+                            </div>
+                        ) : (
+                            <button
+                                disabled={!isAvailable}
+                                onClick={() => {
+                                    onClose();
+                                    onReserve(item);
+                                }}
+                                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
+                                    isAvailable
+                                        ? 'bg-ustp-navy hover:bg-ustp-navy-hover text-white shadow-ustp-navy/20'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-200 dark:border-slate-700'
+                                }`}
+                            >
+                                <CalendarCheck className="w-4 h-4 text-ustp-gold" />
+                                {isAvailable ? 'Proceed to Reservation' : 'Unavailable for Checkout'}
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

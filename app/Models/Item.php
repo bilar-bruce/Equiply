@@ -33,6 +33,7 @@ class Item extends Model
         'category',
         'owner_type',
         'owner_user_id',
+        'rental_rate_flat',
         'rental_rate_hr',
         'deposit_required',
         'availability_stat',
@@ -47,7 +48,8 @@ class Item extends Model
      */
     protected $attributes = [
         'owner_type' => 'facility',
-        'rental_rate_hr' => 0.0,
+        'rental_rate_flat' => 30.0,
+        'rental_rate_hr' => 30.0,
         'deposit_required' => false,
         'availability_stat' => 'available',
         'tags' => [],
@@ -62,6 +64,7 @@ class Item extends Model
     protected function casts(): array
     {
         return [
+            'rental_rate_flat' => 'float',
             'rental_rate_hr' => 'float',
             'deposit_required' => 'boolean',
             'tags' => 'array',
