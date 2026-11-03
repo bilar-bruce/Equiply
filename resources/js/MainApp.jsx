@@ -7,6 +7,7 @@ import CustodianDashboard from './components/CustodianDashboard';
 import MyRentalsView from './components/MyRentalsView';
 import AdminUsersView from './components/AdminUsersView';
 import MyListingsView from './components/MyListingsView';
+import CustodianHistoryView from './components/CustodianHistoryView';
 import SpecsModal from './components/SpecsModal';
 import ReservationModal from './components/ReservationModal';
 import GuestPromptModal from './components/GuestPromptModal';
@@ -22,9 +23,25 @@ function MainLayout({ onNavigateToLogin }) {
     const [refreshKey, setRefreshKey] = useState(0);
     const [toastMessage, setToastMessage] = useState(null);
 
-    // Guard Custodian Desk tab strictly to authenticated custodians/admins
+    // Guard My Borrowings tab strictly to guests and student borrowers (staff do not borrow)
+    useEffect(() => {
+        if (activeTab === 'my-rentals' && isAuthenticated && user?.role !== 'student') {
+            setActiveTab('catalog');
+            showToast('Staff accounts do not borrow inventory. Viewing catalog.');
+        }
+    }, [activeTab, isAuthenticated, user]);
+
+    // Guard Custodian Desk tab strictly to authenticated custodians
     useEffect(() => {
         if (activeTab === 'custodian' && (!isAuthenticated || !isCustodian)) {
+            setActiveTab('catalog');
+            showToast('Access restricted: Custodian credentials required.');
+        }
+    }, [activeTab, isAuthenticated, isCustodian]);
+
+    // Guard Custodian Loan History tab strictly to authenticated custodians
+    useEffect(() => {
+        if (activeTab === 'custodian-history' && (!isAuthenticated || !isCustodian)) {
             setActiveTab('catalog');
             showToast('Access restricted: Custodian credentials required.');
         }
@@ -113,6 +130,14 @@ function MainLayout({ onNavigateToLogin }) {
                             <CustodianDashboard
                                 refreshKey={refreshKey}
                                 onRefreshTrigger={() => setRefreshKey((prev) => prev + 1)}
+                            />
+                        </div>
+                    )}
+
+                    {isAuthenticated && isCustodian && (
+                        <div className={activeTab === 'custodian-history' ? 'block' : 'hidden'}>
+                            <CustodianHistoryView
+                                refreshKey={refreshKey}
                             />
                         </div>
                     )}

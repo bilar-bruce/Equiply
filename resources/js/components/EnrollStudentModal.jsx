@@ -14,8 +14,9 @@ import {
     CreditCard
 } from 'lucide-react';
 
-export default function EnrollStudentModal({ isOpen, onClose, onSuccess }) {
+export default function EnrollStudentModal({ isOpen, onClose, onSuccess, mode = 'default' }) {
     const { user: currentUser, isAdmin } = useAuth();
+    const isStudentOnlyMode = mode === 'student_only';
 
     const [idNumber, setIdNumber] = useState('');
     const [name, setName] = useState('');
@@ -47,6 +48,13 @@ export default function EnrollStudentModal({ isOpen, onClose, onSuccess }) {
         onClose();
     };
 
+    const handleRoleSelect = (newRole) => {
+        setRole(newRole);
+        if (newRole !== 'student') {
+            setIsPeerLender(false);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError(null);
@@ -60,13 +68,14 @@ export default function EnrollStudentModal({ isOpen, onClose, onSuccess }) {
         }
 
         try {
+            const effectiveRole = isStudentOnlyMode ? 'student' : (isAdmin ? role : 'student');
             const payload = {
                 id_number: idNumber.trim(),
                 name: name.trim(),
                 email: email.trim(),
                 contact_number: contactNumber.trim(),
-                role: isAdmin ? role : 'student',
-                is_peer_lender: isPeerLender,
+                role: effectiveRole,
+                is_peer_lender: effectiveRole === 'student' ? isPeerLender : false,
                 ...(customPassword.trim() ? { password: customPassword.trim() } : {}),
             };
 
@@ -105,10 +114,12 @@ export default function EnrollStudentModal({ isOpen, onClose, onSuccess }) {
                             </div>
                             <div>
                                 <h2 className="text-lg font-bold text-slate-900 dark:text-white font-['Outfit']">
-                                    Enroll Campus Account
+                                    {isStudentOnlyMode ? 'Enroll Student Account' : 'Enroll Campus Account'}
                                 </h2>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                                    In-person physical ID verification & account provisioning
+                                    {isStudentOnlyMode
+                                        ? 'In-person physical ID verification & student enrollment'
+                                        : 'In-person physical ID verification & account provisioning'}
                                 </p>
                             </div>
                         </div>
@@ -255,8 +266,8 @@ export default function EnrollStudentModal({ isOpen, onClose, onSuccess }) {
                                 </div>
                             </div>
 
-                            {/* Role Selection (Admin only) */}
-                            {isAdmin && (
+                            {/* Role Selection (Admin only and not in student-only desk mode) */}
+                            {isAdmin && !isStudentOnlyMode && (
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                                         Account Role
@@ -270,7 +281,7 @@ export default function EnrollStudentModal({ isOpen, onClose, onSuccess }) {
                                             <button
                                                 type="button"
                                                 key={r.id}
-                                                onClick={() => setRole(r.id)}
+                                                onClick={() => handleRoleSelect(r.id)}
                                                 className={`py-1.5 px-2 text-xs font-semibold rounded-lg border transition-all text-center ${
                                                     role === r.id
                                                         ? 'bg-ustp-navy text-white border-ustp-navy dark:border-ustp-gold/50 shadow-xs'
@@ -284,22 +295,24 @@ export default function EnrollStudentModal({ isOpen, onClose, onSuccess }) {
                                 </div>
                             )}
 
-                            {/* Peer Lender Checkbox */}
-                            <div className="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800">
-                                <input
-                                    type="checkbox"
-                                    id="enrollPeerLender"
-                                    checked={isPeerLender}
-                                    onChange={(e) => setIsPeerLender(e.target.checked)}
-                                    className="w-4 h-4 rounded text-ustp-navy focus:ring-0 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700"
-                                />
-                                <label htmlFor="enrollPeerLender" className="text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
-                                    <span className="font-semibold block">Grant Verified Peer Lender Privileges</span>
-                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
-                                        Allows the student to list personal equipment on the P2P campus catalog.
-                                    </span>
-                                </label>
-                            </div>
+                            {/* Peer Lender Checkbox (Strictly for Student Accounts) */}
+                            {(isStudentOnlyMode || role === 'student') && (
+                                <div className="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800">
+                                    <input
+                                        type="checkbox"
+                                        id="enrollPeerLender"
+                                        checked={isPeerLender}
+                                        onChange={(e) => setIsPeerLender(e.target.checked)}
+                                        className="w-4 h-4 rounded text-ustp-navy focus:ring-0 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700"
+                                    />
+                                    <label htmlFor="enrollPeerLender" className="text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+                                        <span className="font-semibold block">Grant Verified Peer Lender Privileges</span>
+                                        <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
+                                            Allows the student to list personal equipment on the P2P campus catalog.
+                                        </span>
+                                    </label>
+                                </div>
+                            )}
 
                             {/* Custom Password (Optional) */}
                             <div>

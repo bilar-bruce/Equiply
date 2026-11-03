@@ -182,7 +182,7 @@ class AdminAccountManagementTest extends TestCase
         Sanctum::actingAs($this->admin);
 
         $response = $this->patchJson("/api/admin/users/{$this->admin->_id}/role", [
-            'role' => 'student',
+            'role' => 'custodian',
         ]);
 
         $response->assertStatus(422)
@@ -192,7 +192,7 @@ class AdminAccountManagementTest extends TestCase
     }
 
     /**
-     * Test admin can toggle peer lender privilege.
+     * Test admin can toggle peer lender privilege for students.
      */
     public function test_admin_can_toggle_peer_lender(): void
     {
@@ -204,6 +204,79 @@ class AdminAccountManagementTest extends TestCase
 
         $response->assertStatus(200);
         $this->assertEquals(true, User::find($this->student->_id)->is_peer_lender);
+    }
+
+    /**
+     * Test student role cannot be mutated to staff.
+     */
+    public function test_admin_cannot_mutate_student_role(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $response = $this->patchJson("/api/admin/users/{$this->student->_id}/role", [
+            'role' => 'custodian',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonFragment([
+                'message' => 'Role locked: Student campus accounts cannot be transitioned to staff roles.',
+            ]);
+    }
+
+    /**
+     * Test peer lending privileges cannot be granted to staff.
+     */
+    public function test_admin_cannot_grant_peer_lender_to_staff(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $response = $this->patchJson("/api/admin/users/{$this->custodian->_id}/peer-lender", [
+            'is_peer_lender' => true,
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonFragment([
+                'message' => 'Invalid privilege assignment: Peer lending privileges can only be granted to student accounts.',
+            ]);
+    }
+
+    /**
+     * Test facility staff and admins cannot reserve equipment.
+     */
+    public function test_staff_cannot_reserve_equipment(): void
+    {
+        Sanctum::actingAs($this->custodian);
+
+        $response = $this->postJson('/api/reservations', [
+            'item_id' => 'fake-id',
+            'due_time' => now()->addHours(3)->toIso8601String(),
+            'collateral_held' => 'Cash Deposit: ₱100.00',
+        ]);
+
+        $response->assertStatus(403)
+            ->assertJsonFragment([
+                'message' => 'Access restricted: Only verified student borrowers can reserve equipment. Facility staff and administrators cannot borrow inventory.',
+            ]);
+    }
+
+    /**
+     * Test students cannot directly inject items into the inventory catalog.
+     */
+    public function test_students_cannot_directly_create_items(): void
+    {
+        Sanctum::actingAs($this->student);
+
+        $response = $this->postJson('/api/items', [
+            'item_code' => 'EQ-STUDENT-HACK',
+            'name' => 'Unauthorized Item',
+            'category' => 'General',
+            'owner_type' => 'facility',
+        ]);
+
+        $response->assertStatus(403)
+            ->assertJsonFragment([
+                'message' => 'Access restricted: Only facility custodians or administrators can register inventory directly.',
+            ]);
     }
 }
 

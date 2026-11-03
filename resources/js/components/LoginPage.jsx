@@ -29,9 +29,33 @@ export default function LoginPage({ onContinueAsGuest }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
+    const validateInputs = () => {
+        const cleanLogin = loginInput.trim();
+        const isTenDigit = /^\d{10}$/.test(cleanLogin);
+        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanLogin);
+
+        if (!isTenDigit && !isEmail) {
+            return 'Please enter a valid 10-digit USTP Campus ID (e.g. 2024300616) or a valid university email address.';
+        }
+
+        if (password.length < 8) {
+            return 'Password must be at least 8 characters in length.';
+        }
+
+        return null;
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError(null);
+
+        // Client-side pre-flight constraint check
+        const validationError = validateInputs();
+        if (validationError) {
+            setError(validationError);
+            return;
+        }
+
         setLoading(true);
 
         try {
@@ -241,6 +265,7 @@ export default function LoginPage({ onContinueAsGuest }) {
                                 <input
                                     type={showPassword ? 'text' : 'password'}
                                     required
+                                    minLength={8}
                                     placeholder="••••••••"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
@@ -255,6 +280,9 @@ export default function LoginPage({ onContinueAsGuest }) {
                                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                 </button>
                             </div>
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 block">
+                                Minimum 8 characters in length.
+                            </span>
                         </div>
 
                         <button

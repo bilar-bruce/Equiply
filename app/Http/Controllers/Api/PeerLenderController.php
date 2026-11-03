@@ -199,9 +199,9 @@ class PeerLenderController extends Controller
     public function verifyIntake(Request $request, string $id): JsonResponse
     {
         $currentUser = $request->user();
-        if ($currentUser->role !== 'custodian' && $currentUser->role !== 'admin') {
+        if ($currentUser->role !== 'custodian') {
             return response()->json([
-                'message' => 'Access restricted: Custodian or Administrator credentials required.',
+                'message' => 'Access restricted: Custodian credentials required.',
             ], 403);
         }
 

@@ -96,11 +96,12 @@ class AdminController extends Controller
             'contact_number' => 'required|string|max:20',
             'role' => ['nullable', 'string', Rule::in(['student', 'custodian', 'admin'])],
             'is_peer_lender' => 'nullable|boolean',
-            'password' => 'nullable|string|min:6',
+            'password' => 'nullable|string|min:8',
         ], [
             'id_number.regex' => 'The campus ID must follow the standard 10-digit format (e.g. 2024300616).',
             'id_number.unique' => 'A user account with this 10-digit USTP ID is already registered.',
             'email.unique' => 'A user account with this email address is already registered.',
+            'password.min' => 'Initial password must be at least 8 characters in length.',
         ]);
 
         // Custodians can only enroll students; only Admins can create Custodian or Admin roles
@@ -108,6 +109,11 @@ class AdminController extends Controller
         if ($currentUser->role === 'admin' && !empty($validated['role'])) {
             $targetRole = $validated['role'];
         }
+
+        // Under strict role segregation, P2P lending privileges are strictly exclusive to student accounts
+        $isPeerLender = ($targetRole === 'student')
+            ? filter_var($validated['is_peer_lender'] ?? false, FILTER_VALIDATE_BOOLEAN)
+            : false;
 
         // Default initial temporary password if not provided
         $plainPassword = $validated['password'] ?? ('USTP@' . $validated['id_number']);
@@ -118,7 +124,7 @@ class AdminController extends Controller
             'email' => $validated['email'],
             'password' => Hash::make($plainPassword),
             'role' => $targetRole,
-            'is_peer_lender' => filter_var($validated['is_peer_lender'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'is_peer_lender' => $isPeerLender,
             'contact_number' => $validated['contact_number'],
             'status' => 'active',
         ]);
@@ -179,6 +185,13 @@ class AdminController extends Controller
 
         $user = User::findOrFail($id);
 
+        // Strict role segregation: Only student accounts can possess P2P lending privileges
+        if ($user->role !== 'student') {
+            return response()->json([
+                'message' => 'Invalid privilege assignment: Peer lending privileges can only be granted to student accounts.',
+            ], 422);
+        }
+
         $validated = $request->validate([
             'is_peer_lender' => 'required|boolean',
         ]);
@@ -196,6 +209,7 @@ class AdminController extends Controller
 
     /**
      * Update user role with self-demotion lockout protection.
+     * Strictly limits transitions between staff roles (custodian <-> admin).
      */
     public function updateRole(Request $request, string $id): JsonResponse
     {
@@ -208,8 +222,17 @@ class AdminController extends Controller
 
         $user = User::findOrFail($id);
 
+        // Strict role segregation: Student accounts cannot be transitioned to staff roles
+        if ($user->role === 'student') {
+            return response()->json([
+                'message' => 'Role locked: Student campus accounts cannot be transitioned to staff roles.',
+            ], 422);
+        }
+
         $validated = $request->validate([
-            'role' => ['required', Rule::in(['student', 'custodian', 'admin'])],
+            'role' => ['required', Rule::in(['custodian', 'admin'])],
+        ], [
+            'role.in' => 'Role locked: Staff accounts cannot be demoted to student accounts. Please issue a separate student enrollment.',
         ]);
 
         // Self-demotion lockout protection

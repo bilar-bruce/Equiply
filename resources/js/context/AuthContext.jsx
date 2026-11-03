@@ -96,7 +96,7 @@ export function AuthProvider({ children }) {
                 login,
                 register,
                 logout,
-                isCustodian: user?.role === 'custodian' || user?.role === 'admin',
+                isCustodian: user?.role === 'custodian',
                 isAdmin: user?.role === 'admin',
             }}
         >

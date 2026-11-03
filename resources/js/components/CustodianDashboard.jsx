@@ -503,6 +503,7 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
             {/* In-Person Student Enrollment Modal */}
             <EnrollStudentModal
                 isOpen={enrollModalOpen}
+                mode="student_only"
                 onClose={() => setEnrollModalOpen(false)}
                 onSuccess={() => {
                     fetchRentals();

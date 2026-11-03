@@ -159,6 +159,22 @@ class AdversarialStressTest extends TestCase
             'login' => ['$ne' => null],
             'password' => 'password123',
         ])->assertStatus(422)->assertJsonValidationErrors(['login']);
+
+        // Password under 8 characters (rejects short passwords)
+        $this->postJson('/api/auth/login', [
+            'login' => '2024300616',
+            'password' => '123',
+        ])->assertStatus(422)
+          ->assertJsonValidationErrors(['password'])
+          ->assertJsonFragment([
+              'password' => ['Password must be at least 8 characters in length.'],
+          ]);
+
+        // Arbitrary short string that is neither 10-digit ID nor valid email
+        $this->postJson('/api/auth/login', [
+            'login' => '123',
+            'password' => 'password123',
+        ])->assertStatus(422)->assertJsonValidationErrors(['login']);
     }
 
     /**
@@ -270,7 +286,7 @@ class AdversarialStressTest extends TestCase
 
         // Self-demotion lockout
         $this->patchJson("/api/admin/users/{$this->admin->_id}/role", [
-            'role' => 'student',
+            'role' => 'custodian',
         ])->assertStatus(422)
           ->assertJsonFragment([
               'message' => 'Self-demotion lockout: You cannot revoke your own administrator privileges.',

@@ -317,7 +317,7 @@ class RoleFunctionalityAuditTest extends TestCase
 
         // Admin Self-Demotion Lockout
         $demoteRes = $this->patchJson("/api/admin/users/{$this->admin->_id}/role", [
-            'role' => 'student',
+            'role' => 'custodian',
         ]);
         $demoteRes->assertStatus(422)
             ->assertJsonFragment(['message' => 'Self-demotion lockout: You cannot revoke your own administrator privileges.']);

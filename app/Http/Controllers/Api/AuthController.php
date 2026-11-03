@@ -18,13 +18,33 @@ class AuthController extends Controller
     public function login(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'login' => 'required|string', // Can be email or id_number
-            'password' => 'required|string',
-            'device_name' => 'nullable|string',
+            'login' => [
+                'bail',
+                'required',
+                'string',
+                function ($attribute, $value, $fail) {
+                    if (! is_string($value)) {
+                        return;
+                    }
+                    $val = trim($value);
+                    $isTenDigit = (bool) preg_match('/^\d{10}$/', $val);
+                    $isEmail = (bool) filter_var($val, FILTER_VALIDATE_EMAIL);
+                    if (! $isTenDigit && ! $isEmail) {
+                        $fail('The login identifier must be a valid 10-digit USTP Campus ID (e.g. 2024300616) or a valid email address.');
+                    }
+                },
+            ],
+            'password' => 'required|string|min:8',
+            'device_name' => 'nullable|string|max:100',
+        ], [
+            'login.required' => 'Please provide your 10-digit USTP ID or campus email.',
+            'password.required' => 'Password is required.',
+            'password.min' => 'Password must be at least 8 characters in length.',
         ]);
 
-        $user = User::where('email', $validated['login'])
-            ->orWhere('id_number', $validated['login'])
+        $cleanLogin = trim($validated['login']);
+        $user = User::where('email', $cleanLogin)
+            ->orWhere('id_number', $cleanLogin)
             ->first();
 
         if (! $user || ! Hash::check($validated['password'], $user->password)) {

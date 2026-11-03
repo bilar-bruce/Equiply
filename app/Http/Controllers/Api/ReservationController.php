@@ -90,6 +90,13 @@ class ReservationController extends Controller
 
         $borrower = $request->user();
 
+        // Strict role segregation: Only student borrowers can reserve equipment
+        if ($borrower->role !== 'student') {
+            return response()->json([
+                'message' => 'Access restricted: Only verified student borrowers can reserve equipment. Facility staff and administrators cannot borrow inventory.',
+            ], 403);
+        }
+
         // Multi-document ACID transaction session
         $rental = DB::connection('mongodb')->transaction(function () use ($validated, $borrower) {
             /** @var Item|null $item */
@@ -171,8 +178,8 @@ class ReservationController extends Controller
     public function checkout(Request $request, string $id): JsonResponse
     {
         $custodian = $request->user();
-        if (! in_array($custodian->role, ['custodian', 'admin'])) {
-            abort(403, 'Only custodians or administrators can authorize item checkout.');
+        if ($custodian->role !== 'custodian') {
+            abort(403, 'Only facility custodians can authorize item checkout dispatch.');
         }
 
         $rental = DB::connection('mongodb')->transaction(function () use ($id, $custodian) {
@@ -211,8 +218,8 @@ class ReservationController extends Controller
     public function checkin(Request $request, string $id): JsonResponse
     {
         $custodian = $request->user();
-        if (! in_array($custodian->role, ['custodian', 'admin'])) {
-            abort(403, 'Only custodians or administrators can process return check-ins.');
+        if ($custodian->role !== 'custodian') {
+            abort(403, 'Only facility custodians can process return check-ins.');
         }
 
         $validated = $request->validate([
@@ -273,8 +280,9 @@ class ReservationController extends Controller
             /** @var Rental|null $rental */
             $rental = Rental::where('_id', $id)->orWhere('rental_code', $id)->firstOrFail();
 
-            if ($user->role === 'student' && (string) $rental->borrower_id !== (string) $user->_id) {
-                abort(403, 'Unauthorized to cancel this reservation.');
+            // Strict authorization: Only the borrower student or a facility custodian can cancel reservations
+            if ($user->role !== 'custodian' && (string) $rental->borrower_id !== (string) $user->_id) {
+                abort(403, 'Unauthorized: Only the borrower or a facility custodian can cancel reservations.');
             }
 
             if (! in_array($rental->status, ['pending', 'reserved'])) {

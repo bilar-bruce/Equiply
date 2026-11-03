@@ -13,8 +13,10 @@ import {
 } from 'lucide-react';
 
 export default function SpecsModal({ item, onClose, onReserve }) {
-    const { user, isAuthenticated } = useAuth();
+    const { user, isAuthenticated, isCustodian, isAdmin } = useAuth();
     if (!item) return null;
+
+    const isStaff = isCustodian || isAdmin;
 
     const isAvailable = item.availability_stat === 'available';
     const isOwner =
@@ -173,27 +175,29 @@ export default function SpecsModal({ item, onClose, onReserve }) {
                             Close
                         </button>
 
-                        {isOwner ? (
-                            <div className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-500/10 text-amber-700 dark:text-ustp-gold border border-amber-500/30">
-                                <Tag className="w-4 h-4 text-ustp-gold" />
-                                <span>Your Equipment Listing</span>
-                            </div>
-                        ) : (
-                            <button
-                                disabled={!isAvailable}
-                                onClick={() => {
-                                    onClose();
-                                    onReserve(item);
-                                }}
-                                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                                    isAvailable
-                                        ? 'bg-ustp-navy hover:bg-ustp-navy-hover text-white shadow-ustp-navy/20'
-                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-200 dark:border-slate-700'
-                                }`}
-                            >
-                                <CalendarCheck className="w-4 h-4 text-ustp-gold" />
-                                {isAvailable ? 'Proceed to Reservation' : 'Unavailable for Checkout'}
-                            </button>
+                        {!isStaff && (
+                            isOwner ? (
+                                <div className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-500/10 text-amber-700 dark:text-ustp-gold border border-amber-500/30">
+                                    <Tag className="w-4 h-4 text-ustp-gold" />
+                                    <span>Your Equipment Listing</span>
+                                </div>
+                            ) : (
+                                <button
+                                    disabled={!isAvailable}
+                                    onClick={() => {
+                                        onClose();
+                                        onReserve(item);
+                                    }}
+                                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
+                                        isAvailable
+                                            ? 'bg-ustp-navy hover:bg-ustp-navy-hover text-white shadow-ustp-navy/20'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-200 dark:border-slate-700'
+                                    }`}
+                                >
+                                    <CalendarCheck className="w-4 h-4 text-ustp-gold" />
+                                    {isAvailable ? 'Proceed to Reservation' : 'Unavailable for Checkout'}
+                                </button>
+                            )
                         )}
                     </div>
                 </div>

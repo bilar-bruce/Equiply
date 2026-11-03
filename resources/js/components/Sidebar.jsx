@@ -13,7 +13,8 @@ import {
     Menu,
     X,
     Package,
-    Tag
+    Tag,
+    History
 } from 'lucide-react';
 
 export default function Sidebar({ activeTab, setActiveTab, onNavigateToLogin, onOpenAuthModal }) {
@@ -28,8 +29,13 @@ export default function Sidebar({ activeTab, setActiveTab, onNavigateToLogin, on
         setMobileOpen(false);
     };
 
-    // Navigation items: Custodian Desk is strictly restricted to authenticated staff (custodian/admin)
-    // Account Management is strictly restricted to authenticated admins
+    // Navigation items:
+    // - Gear Catalog: visible to all
+    // - My Borrowings: visible to unauthenticated guests and verified students only
+    // - My Listings: visible to authenticated peer lenders only
+    // - Custodian Desk: visible to authenticated custodians only
+    // - Loan History: visible to authenticated custodians only
+    // - Account Management: visible to authenticated admins only
     const navItems = [
         {
             id: 'catalog',
@@ -38,13 +44,17 @@ export default function Sidebar({ activeTab, setActiveTab, onNavigateToLogin, on
             badge: null,
             desc: 'Campus & P2P Gear',
         },
-        {
-            id: 'my-rentals',
-            label: 'My Borrowings',
-            icon: Clock,
-            badge: null,
-            desc: 'Active loans & history',
-        },
+        ...(!isAuthenticated || user?.role === 'student'
+            ? [
+                  {
+                      id: 'my-rentals',
+                      label: 'My Borrowings',
+                      icon: Clock,
+                      badge: null,
+                      desc: 'Active loans & history',
+                  },
+              ]
+            : []),
         ...(isAuthenticated && user?.is_peer_lender
             ? [
                   {
@@ -64,6 +74,13 @@ export default function Sidebar({ activeTab, setActiveTab, onNavigateToLogin, on
                       icon: ShieldCheck,
                       badge: 'STAFF',
                       desc: 'Check-in & returns',
+                  },
+                  {
+                      id: 'custodian-history',
+                      label: 'Loan History',
+                      icon: History,
+                      badge: 'RECORDS',
+                      desc: 'Archived loans & audit logs',
                   },
               ]
             : []),

@@ -128,6 +128,12 @@ class ItemController extends Controller
     {
         $user = $request->user();
 
+        if (! in_array($user->role, ['custodian', 'admin'])) {
+            return response()->json([
+                'message' => 'Access restricted: Only facility custodians or administrators can register inventory directly.',
+            ], 403);
+        }
+
         $validated = $request->validate([
             'item_code' => 'required|string|unique:items,item_code',
             'name' => 'required|string|max:255',

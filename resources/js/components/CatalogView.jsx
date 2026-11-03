@@ -134,7 +134,8 @@ function StatusBadge({ status }) {
 }
 
 export default function CatalogView({ onSelectSpecs, onOpenReserve, refreshKey }) {
-    const { user, isAuthenticated } = useAuth();
+    const { user, isAuthenticated, isCustodian, isAdmin } = useAuth();
+    const isStaff = isCustodian || isAdmin;
     const [items, setItems] = useState([]);
     const [categoryStats, setCategoryStats] = useState([]);
     const [categoryMeta, setCategoryMeta] = useState({ total_all: 0, total_available: 0 });
@@ -487,39 +488,49 @@ export default function CatalogView({ onSelectSpecs, onOpenReserve, refreshKey }
                                             </div>
                                         </div>
 
-                                        {/* Card Actions */}
-                                        <div className="grid grid-cols-2 gap-2">
+                                        {/* Card Actions - Staff view specs only, borrowers have reservation actions */}
+                                        {isStaff ? (
                                             <button
                                                 onClick={() => onSelectSpecs(item)}
-                                                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-colors"
+                                                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-colors"
                                             >
                                                 <Info className="w-3.5 h-3.5 text-slate-500" />
-                                                Specs
+                                                View Specs & Details
                                             </button>
-
-                                            {isOwner ? (
-                                                <div
-                                                    title="You own this equipment listing"
-                                                    className="flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl text-[11px] font-bold bg-amber-500/10 text-amber-700 dark:text-ustp-gold border border-amber-500/30 select-none text-center"
-                                                >
-                                                    <Tag className="w-3.5 h-3.5 shrink-0 text-ustp-gold" />
-                                                    <span className="truncate">Your Listing</span>
-                                                </div>
-                                            ) : (
+                                        ) : (
+                                            <div className="grid grid-cols-2 gap-2">
                                                 <button
-                                                    disabled={!isAvailable}
-                                                    onClick={() => onOpenReserve(item)}
-                                                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                                                        isAvailable
-                                                            ? 'bg-ustp-navy hover:bg-ustp-navy-hover text-white shadow-ustp-navy/20'
-                                                            : 'bg-slate-100 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-200 dark:border-slate-800'
-                                                    }`}
+                                                    onClick={() => onSelectSpecs(item)}
+                                                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-colors"
                                                 >
-                                                    <CalendarCheck className="w-3.5 h-3.5 text-ustp-gold" />
-                                                    {isAvailable ? 'Reserve' : 'Locked'}
+                                                    <Info className="w-3.5 h-3.5 text-slate-500" />
+                                                    Specs
                                                 </button>
-                                            )}
-                                        </div>
+
+                                                {isOwner ? (
+                                                    <div
+                                                        title="You own this equipment listing"
+                                                        className="flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl text-[11px] font-bold bg-amber-500/10 text-amber-700 dark:text-ustp-gold border border-amber-500/30 select-none text-center"
+                                                    >
+                                                        <Tag className="w-3.5 h-3.5 shrink-0 text-ustp-gold" />
+                                                        <span className="truncate">Your Listing</span>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        disabled={!isAvailable}
+                                                        onClick={() => onOpenReserve(item)}
+                                                        className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-xs ${
+                                                            isAvailable
+                                                                ? 'bg-ustp-navy hover:bg-ustp-navy-hover text-white shadow-ustp-navy/20'
+                                                                : 'bg-slate-100 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-200 dark:border-slate-800'
+                                                        }`}
+                                                    >
+                                                        <CalendarCheck className="w-3.5 h-3.5 text-ustp-gold" />
+                                                        {isAvailable ? 'Reserve' : 'Locked'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

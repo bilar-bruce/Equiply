@@ -415,40 +415,49 @@ export default function AdminUsersView() {
 
                                             {/* Role & Role Selector */}
                                             <td className="py-3.5 px-4">
-                                                <select
-                                                    disabled={actionLoadingId === accountId || isSelf}
-                                                    value={account.role}
-                                                    onChange={(e) => handleChangeRole(account, e.target.value)}
-                                                    className={`text-[11px] font-bold uppercase rounded-lg px-2 py-1 border transition-all cursor-pointer ${
-                                                        account.role === 'admin'
-                                                            ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
-                                                            : account.role === 'custodian'
-                                                            ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                                                    }`}
-                                                    title={isSelf ? 'Cannot modify your own administrator role' : 'Change account role'}
-                                                >
-                                                    <option value="student">STUDENT</option>
-                                                    <option value="custodian">CUSTODIAN</option>
-                                                    <option value="admin">ADMIN</option>
-                                                </select>
+                                                {account.role === 'student' ? (
+                                                    <span className="inline-flex items-center px-2.5 py-1 text-[11px] font-bold uppercase rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                                        STUDENT
+                                                    </span>
+                                                ) : (
+                                                    <select
+                                                        disabled={actionLoadingId === accountId || isSelf}
+                                                        value={account.role}
+                                                        onChange={(e) => handleChangeRole(account, e.target.value)}
+                                                        className={`text-[11px] font-bold uppercase rounded-lg px-2 py-1 border transition-all cursor-pointer ${
+                                                            account.role === 'admin'
+                                                                ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                                                                : 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                                                        }`}
+                                                        title={isSelf ? 'Cannot modify your own administrator role' : 'Reassign staff role'}
+                                                    >
+                                                        <option value="custodian">CUSTODIAN</option>
+                                                        <option value="admin">ADMIN</option>
+                                                    </select>
+                                                )}
                                             </td>
 
                                             {/* P2P Lending Toggle */}
                                             <td className="py-3.5 px-4">
-                                                <button
-                                                    disabled={actionLoadingId === accountId}
-                                                    onClick={() => handleTogglePeerLender(account)}
-                                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all ${
-                                                        isP2P
-                                                            ? 'bg-amber-500/10 text-amber-700 dark:text-ustp-gold border border-amber-400 dark:border-amber-600 hover:bg-amber-500/20'
-                                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 hover:text-slate-700'
-                                                    }`}
-                                                    title="Click to toggle peer lending status"
-                                                >
-                                                    <Sparkles className={`w-3 h-3 ${isP2P ? 'text-ustp-gold' : ''}`} />
-                                                    <span>{isP2P ? 'Granted' : 'Disabled'}</span>
-                                                </button>
+                                                {account.role === 'student' ? (
+                                                    <button
+                                                        disabled={actionLoadingId === accountId}
+                                                        onClick={() => handleTogglePeerLender(account)}
+                                                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all ${
+                                                            isP2P
+                                                                ? 'bg-amber-500/10 text-amber-700 dark:text-ustp-gold border border-amber-400 dark:border-amber-600 hover:bg-amber-500/20'
+                                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 hover:text-slate-700'
+                                                        }`}
+                                                        title="Click to toggle peer lending status"
+                                                    >
+                                                        <Sparkles className={`w-3 h-3 ${isP2P ? 'text-ustp-gold' : ''}`} />
+                                                        <span>{isP2P ? 'Granted' : 'Disabled'}</span>
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-slate-400 dark:text-slate-600 text-xs font-mono px-2" title="P2P lending is exclusive to student accounts">
+                                                        —
+                                                    </span>
+                                                )}
                                             </td>
 
                                             {/* Account Status Badge & Toggle */}
