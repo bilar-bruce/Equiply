@@ -11,6 +11,10 @@
 /.phpunit.cache
 /.vscode
 /.zed
+/.agent
+/CHANGELOG.md
+/docs/CHANGELOG.md
+/docs/TASKS.md
 /auth.json
 /node_modules
 /public/build
