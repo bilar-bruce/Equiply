@@ -155,4 +155,153 @@ class EmailAuthLifecycleTest extends TestCase
 
         $this->assertTrue((bool) \App\Models\User::find($student->_id)->must_change_password);
     }
+
+    public function test_forgot_password_sends_otp_email_and_resets_password_on_valid_otp(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+
+        $studentId = '2024777004';
+        \App\Models\User::where('id_number', $studentId)->delete();
+
+        $student = \App\Models\User::create([
+            'id_number' => $studentId,
+            'name' => 'Elena Villanueva',
+            'email' => 'elena.villanueva@ustp.edu.ph',
+            'password' => \Illuminate\Support\Facades\Hash::make('OldPassword123'),
+            'role' => 'student',
+            'contact_number' => '+639174445566',
+            'status' => 'active',
+        ]);
+
+        $forgotResponse = $this->postJson('/api/auth/forgot-password', [
+            'login' => $studentId,
+        ]);
+
+        $forgotResponse->assertStatus(200);
+
+        $capturedOtp = null;
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\PasswordResetOtpMail::class, function ($mail) use (&$capturedOtp) {
+            $capturedOtp = $mail->otpCode;
+            $html = $mail->render();
+            return $mail->hasTo('elena.villanueva@ustp.edu.ph')
+                && preg_match('/^\d{6}$/', $mail->otpCode) === 1
+                && str_contains($html, $mail->otpCode);
+        });
+
+        $this->assertNotNull($capturedOtp);
+
+        $resetResponse = $this->postJson('/api/auth/reset-password', [
+            'login' => $studentId,
+            'otp' => $capturedOtp,
+            'password' => 'ResetSecure#2026',
+            'password_confirmation' => 'ResetSecure#2026',
+        ]);
+
+        $resetResponse->assertStatus(200);
+
+        $freshStudent = \App\Models\User::find($student->_id);
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('ResetSecure#2026', $freshStudent->password));
+        $this->assertNull($freshStudent->password_reset_otp);
+        $this->assertNull($freshStudent->password_reset_expires_at);
+    }
+
+    public function test_forgot_password_rejects_unknown_account_and_sends_no_email(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+
+        $response = $this->postJson('/api/auth/forgot-password', [
+            'login' => '2099999999',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['login']);
+
+        \Illuminate\Support\Facades\Mail::assertNothingSent();
+    }
+
+    public function test_reset_password_rejects_invalid_and_expired_otp(): void
+    {
+        $studentId = '2024777005';
+        \App\Models\User::where('id_number', $studentId)->delete();
+
+        $student = \App\Models\User::create([
+            'id_number' => $studentId,
+            'name' => 'Francis Lim',
+            'email' => 'francis.lim@ustp.edu.ph',
+            'password' => \Illuminate\Support\Facades\Hash::make('OriginalPass123'),
+            'role' => 'student',
+            'contact_number' => '+639175556677',
+            'status' => 'active',
+            'password_reset_otp' => \Illuminate\Support\Facades\Hash::make('654321'),
+            'password_reset_expires_at' => now()->addMinutes(15),
+        ]);
+
+        // 1. Invalid OTP code
+        $invalidResponse = $this->postJson('/api/auth/reset-password', [
+            'login' => $studentId,
+            'otp' => '000000',
+            'password' => 'AttemptedPass#1',
+            'password_confirmation' => 'AttemptedPass#1',
+        ]);
+
+        $invalidResponse->assertStatus(422)
+            ->assertJsonValidationErrors(['otp']);
+
+        // 2. Expired OTP code
+        $student->password_reset_expires_at = now()->subMinute();
+        $student->save();
+
+        $expiredResponse = $this->postJson('/api/auth/reset-password', [
+            'login' => $studentId,
+            'otp' => '654321',
+            'password' => 'AttemptedPass#2',
+            'password_confirmation' => 'AttemptedPass#2',
+        ]);
+
+        $expiredResponse->assertStatus(422)
+            ->assertJsonValidationErrors(['otp']);
+
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('OriginalPass123', \App\Models\User::find($student->_id)->password));
+    }
+
+    public function test_reset_password_clears_otp_preventing_replay_and_revokes_tokens(): void
+    {
+        $studentId = '2024777006';
+        \App\Models\User::where('id_number', $studentId)->delete();
+
+        $student = \App\Models\User::create([
+            'id_number' => $studentId,
+            'name' => 'Grace Tan',
+            'email' => 'grace.tan@ustp.edu.ph',
+            'password' => \Illuminate\Support\Facades\Hash::make('OriginalPass123'),
+            'role' => 'student',
+            'contact_number' => '+639176667788',
+            'status' => 'active',
+            'password_reset_otp' => \Illuminate\Support\Facades\Hash::make('112233'),
+            'password_reset_expires_at' => now()->addMinutes(15),
+        ]);
+
+        $student->createToken('test-device');
+        $this->assertCount(1, $student->tokens()->get());
+
+        $firstReset = $this->postJson('/api/auth/reset-password', [
+            'login' => $studentId,
+            'otp' => '112233',
+            'password' => 'FreshPassword#2026',
+            'password_confirmation' => 'FreshPassword#2026',
+        ]);
+        $firstReset->assertStatus(200);
+
+        $this->assertCount(0, $student->tokens()->get());
+
+        // Replay attempt with same OTP must fail with 422
+        $replayReset = $this->postJson('/api/auth/reset-password', [
+            'login' => $studentId,
+            'otp' => '112233',
+            'password' => 'AnotherPassword#2026',
+            'password_confirmation' => 'AnotherPassword#2026',
+        ]);
+        $replayReset->assertStatus(422)
+            ->assertJsonValidationErrors(['otp']);
+    }
 }
