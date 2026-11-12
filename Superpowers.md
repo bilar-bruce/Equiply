@@ -34,26 +34,26 @@ Equiply runs on **Laravel 12**, which already has **Resend** pre-configured as a
 
 **Goal:** Connect Equiply's in-person Facility Desk account provisioning (`AdminController@store`) to a real transactional email pipeline, enforce first-login password updates, and provide self-service OTP password recovery.
 
-- [ ] **Phase 11.1: Resend Mailer & Failover Configuration**
-    - [ ] Install Resend SDK (`composer require resend/resend-laravel`) and configure `services.php` (`'resend' => ['key' => env('RESEND_KEY')]`).
-    - [ ] Update `.env.example` with `MAIL_MAILER=resend`, `RESEND_KEY=`, and `MAIL_FROM_ADDRESS="noreply@equiply.ustp.edu.ph"`, `MAIL_FROM_NAME="Equiply • USTP Facility Operations"`.
-    - [ ] Create base USTP-branded HTML email layout (`resources/views/emails/layout.blade.php`) using USTP Deep Navy (`#1B1642`) and Gold (`#F5A623`).
-- [ ] **Phase 11.2: Desk Provisioning Welcome Email & Verification (`AdminController@store`)**
-    - [ ] Add `must_change_password` (`boolean`, default `true` on desk enrollment) and `email_verified_at` (`datetime|null`) to `App\Models\User` (`$fillable` and `$casts`) and `UserResource.php`.
-    - [ ] Create `App\Mail\StudentEnrolledWelcomeMail` containing the student's 10-digit USTP ID (`id_number`), temporary password (`USTP@<id_number>`), and a 6-digit verification code.
-    - [ ] Dispatch `StudentEnrolledWelcomeMail` in `AdminController@store` whenever a Custodian or Admin enrolls a new account at the Facility Desk.
-- [ ] **Phase 11.3: Forced First-Login Password Change Flow**
-    - [ ] Create `POST /api/auth/change-password` in `AuthController.php` validating `current_password`, `password` (`min:8|confirmed`), clearing `must_change_password = false`, and setting `email_verified_at = now()`.
-    - [ ] Build `ForcePasswordChangeModal.jsx` (or screen gate in `MainApp.jsx`) that intercepts newly enrolled students with `user.must_change_password === true` immediately after login before they can reserve gear.
-- [ ] **Phase 11.4: Self-Service Password Reset via 6-Digit Email OTP**
-    - [ ] Create MongoDB-backed password reset token/OTP handling in `AuthController.php`:
+- [x] **Phase 11.1: Resend Mailer & Failover Configuration**
+    - [x] Install Resend SDK (`composer require resend/resend-laravel`) and configure `services.php` (`'resend' => ['key' => env('RESEND_KEY')]`).
+    - [x] Update `.env.example` with `MAIL_MAILER=resend`, `RESEND_KEY=`, and `MAIL_FROM_ADDRESS="noreply@equiply.ustp.edu.ph"`, `MAIL_FROM_NAME="Equiply • USTP Facility Operations"`.
+    - [x] Create base USTP-branded HTML email layout (`resources/views/emails/layout.blade.php`) using USTP Deep Navy (`#1B1642`) and Gold (`#F5A623`).
+- [x] **Phase 11.2: Desk Provisioning Welcome Email & Verification (`AdminController@store`)**
+    - [x] Add `must_change_password` (`boolean`, default `true` on desk enrollment) and `email_verified_at` (`datetime|null`) to `App\Models\User` (`$fillable` and `$casts`) and `UserResource.php`.
+    - [x] Create `App\Mail\StudentEnrolledWelcomeMail` containing the student's 10-digit USTP ID (`id_number`), temporary password (`USTP@<id_number>`), and a 6-digit verification code.
+    - [x] Dispatch `StudentEnrolledWelcomeMail` in `AdminController@store` whenever a Custodian or Admin enrolls a new account at the Facility Desk.
+- [x] **Phase 11.3: Forced First-Login Password Change Flow**
+    - [x] Create `POST /api/auth/change-password` in `AuthController.php` validating `current_password`, `password` (`min:8|confirmed`), clearing `must_change_password = false`, and setting `email_verified_at = now()`.
+    - [x] Build `ForcePasswordChangeModal.jsx` (or screen gate in `MainApp.jsx`) that intercepts newly enrolled students with `user.must_change_password === true` immediately after login before they can reserve gear.
+- [x] **Phase 11.4: Self-Service Password Reset via 6-Digit Email OTP**
+    - [x] Create MongoDB-backed password reset token/OTP handling in `AuthController.php`:
         - `POST /api/auth/forgot-password`: Accepts 10-digit USTP ID or campus email, generates a 15-minute 6-digit OTP, stores hashed OTP with expiry, and sends `App\Mail\PasswordResetOtpMail`.
         - `POST /api/auth/reset-password`: Validates 6-digit OTP + new password (`min:8|confirmed`), updates password, and revokes stale tokens.
-    - [ ] Update `LoginPage.jsx` with a *"Forgot Password?"* interactive stepper (Request OTP → Enter 6-Digit Code & New Password → Return to Sign In).
-- [ ] **Phase 11.5: Automated TDD Verification (`tests/Feature/EmailAuthLifecycleTest.php`)**
-    - [ ] Using `Mail::fake()`, assert `StudentEnrolledWelcomeMail` is sent when a Custodian or Admin enrolls a student.
-    - [ ] Assert first-login password change clears `must_change_password`.
-    - [ ] Assert forgot-password sends `PasswordResetOtpMail`, rejects expired/invalid OTPs (HTTP 422), and resets password on valid OTP.
+    - [x] Update `LoginPage.jsx` with a *"Forgot Password?"* interactive stepper (Request OTP → Enter 6-Digit Code & New Password → Return to Sign In).
+- [x] **Phase 11.5: Automated TDD Verification (`tests/Feature/EmailAuthLifecycleTest.php`)**
+    - [x] Using `Mail::fake()`, assert `StudentEnrolledWelcomeMail` is sent when a Custodian or Admin enrolls a student.
+    - [x] Assert first-login password change clears `must_change_password`.
+    - [x] Assert forgot-password sends `PasswordResetOtpMail`, rejects expired/invalid OTPs (HTTP 422), and resets password on valid OTP.
 
 ---
 

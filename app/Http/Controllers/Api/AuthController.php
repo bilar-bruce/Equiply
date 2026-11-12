@@ -111,7 +111,9 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'current_password' => 'required|string',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => 'required|string|min:8|confirmed|different:current_password',
+        ], [
+            'password.different' => 'Your new password must be different from your temporary password.',
         ]);
 
         $user = $request->user();
@@ -215,6 +217,12 @@ class AuthController extends Controller
         if (! $user) {
             throw ValidationException::withMessages([
                 'login' => ['We could not find an enrolled USTP campus account matching that 10-digit ID or email address.'],
+            ]);
+        }
+
+        if ($user->status !== 'active') {
+            throw ValidationException::withMessages([
+                'login' => ["Account is currently {$user->status}. Please contact the facility custodian or administrator."],
             ]);
         }
 

@@ -304,4 +304,76 @@ class EmailAuthLifecycleTest extends TestCase
         $replayReset->assertStatus(422)
             ->assertJsonValidationErrors(['otp']);
     }
+
+    public function test_first_login_password_change_rejects_same_password_as_current_password(): void
+    {
+        $studentId = '2024777007';
+        \App\Models\User::where('id_number', $studentId)->delete();
+
+        $student = \App\Models\User::create([
+            'id_number' => $studentId,
+            'name' => 'Hector Gomez',
+            'email' => 'hector.gomez@ustp.edu.ph',
+            'password' => \Illuminate\Support\Facades\Hash::make('USTP@2024777007'),
+            'role' => 'student',
+            'contact_number' => '+639177778899',
+            'status' => 'active',
+            'must_change_password' => true,
+            'email_verified_at' => null,
+        ]);
+
+        \Laravel\Sanctum\Sanctum::actingAs($student);
+
+        $response = $this->postJson('/api/auth/change-password', [
+            'current_password' => 'USTP@2024777007',
+            'password' => 'USTP@2024777007',
+            'password_confirmation' => 'USTP@2024777007',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['password']);
+
+        $this->assertTrue((bool) \App\Models\User::find($student->_id)->must_change_password);
+    }
+
+    public function test_forgot_and_reset_password_reject_suspended_accounts(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+
+        $studentId = '2024777008';
+        \App\Models\User::where('id_number', $studentId)->delete();
+
+        $student = \App\Models\User::create([
+            'id_number' => $studentId,
+            'name' => 'Irene Soriano',
+            'email' => 'irene.soriano@ustp.edu.ph',
+            'password' => \Illuminate\Support\Facades\Hash::make('OriginalPass123'),
+            'role' => 'student',
+            'contact_number' => '+639178889900',
+            'status' => 'suspended',
+            'password_reset_otp' => \Illuminate\Support\Facades\Hash::make('778899'),
+            'password_reset_expires_at' => now()->addMinutes(15),
+        ]);
+
+        $forgotResponse = $this->postJson('/api/auth/forgot-password', [
+            'login' => $studentId,
+        ]);
+
+        $forgotResponse->assertStatus(422)
+            ->assertJsonValidationErrors(['login']);
+
+        \Illuminate\Support\Facades\Mail::assertNothingSent();
+
+        $resetResponse = $this->postJson('/api/auth/reset-password', [
+            'login' => $studentId,
+            'otp' => '778899',
+            'password' => 'AttemptedReset#2026',
+            'password_confirmation' => 'AttemptedReset#2026',
+        ]);
+
+        $resetResponse->assertStatus(422)
+            ->assertJsonValidationErrors(['login']);
+
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('OriginalPass123', \App\Models\User::find($student->_id)->password));
+    }
 }
