@@ -23,6 +23,8 @@ class UserResource extends JsonResource
             'is_peer_lender' => (bool) $this->is_peer_lender,
             'contact_number' => $this->contact_number,
             'status' => $this->status,
+            'must_change_password' => (bool) $this->must_change_password,
+            'email_verified_at' => $this->email_verified_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

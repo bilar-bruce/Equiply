@@ -41,6 +41,11 @@ class User extends Authenticatable
         'is_peer_lender',
         'contact_number',
         'status',
+        'must_change_password',
+        'email_verified_at',
+        'verification_code',
+        'password_reset_otp',
+        'password_reset_expires_at',
     ];
 
     /**
@@ -51,6 +56,7 @@ class User extends Authenticatable
     protected $attributes = [
         'is_peer_lender' => false,
         'status' => 'active',
+        'must_change_password' => false,
     ];
 
     /**
@@ -61,6 +67,8 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'verification_code',
+        'password_reset_otp',
     ];
 
     /**
@@ -72,7 +80,9 @@ class User extends Authenticatable
     {
         return [
             'is_peer_lender' => 'boolean',
+            'must_change_password' => 'boolean',
             'email_verified_at' => 'datetime',
+            'password_reset_expires_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
