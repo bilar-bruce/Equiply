@@ -13,8 +13,10 @@
 /.zed
 /.agent
 /CHANGELOG.md
+/Superpowers.md
 /docs/CHANGELOG.md
 /docs/TASKS.md
+/docs/superpowers
 /auth.json
 /node_modules
 /public/build
