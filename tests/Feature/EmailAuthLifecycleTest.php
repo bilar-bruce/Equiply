@@ -87,4 +87,72 @@ class EmailAuthLifecycleTest extends TestCase
                 && str_contains($html, $mail->verificationCode);
         });
     }
+
+    public function test_first_login_password_change_clears_must_change_password_and_sets_verified(): void
+    {
+        $studentId = '2024777002';
+        \App\Models\User::where('id_number', $studentId)->delete();
+
+        $student = \App\Models\User::create([
+            'id_number' => $studentId,
+            'name' => 'Carlos Mendoza',
+            'email' => 'carlos.mendoza@ustp.edu.ph',
+            'password' => \Illuminate\Support\Facades\Hash::make('USTP@2024777002'),
+            'role' => 'student',
+            'contact_number' => '+639172223344',
+            'status' => 'active',
+            'must_change_password' => true,
+            'email_verified_at' => null,
+            'verification_code' => \Illuminate\Support\Facades\Hash::make('123456'),
+        ]);
+
+        \Laravel\Sanctum\Sanctum::actingAs($student);
+
+        $response = $this->postJson('/api/auth/change-password', [
+            'current_password' => 'USTP@2024777002',
+            'password' => 'NewSecurePass#2026',
+            'password_confirmation' => 'NewSecurePass#2026',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('user.must_change_password', false);
+
+        $this->assertNotNull($response->json('user.email_verified_at'));
+
+        $freshStudent = \App\Models\User::find($student->_id);
+        $this->assertFalse((bool) $freshStudent->must_change_password);
+        $this->assertNotNull($freshStudent->email_verified_at);
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('NewSecurePass#2026', $freshStudent->password));
+    }
+
+    public function test_first_login_password_change_rejects_wrong_current_password(): void
+    {
+        $studentId = '2024777003';
+        \App\Models\User::where('id_number', $studentId)->delete();
+
+        $student = \App\Models\User::create([
+            'id_number' => $studentId,
+            'name' => 'Diana Reyes',
+            'email' => 'diana.reyes@ustp.edu.ph',
+            'password' => \Illuminate\Support\Facades\Hash::make('USTP@2024777003'),
+            'role' => 'student',
+            'contact_number' => '+639173334455',
+            'status' => 'active',
+            'must_change_password' => true,
+            'email_verified_at' => null,
+        ]);
+
+        \Laravel\Sanctum\Sanctum::actingAs($student);
+
+        $response = $this->postJson('/api/auth/change-password', [
+            'current_password' => 'WrongPassword123',
+            'password' => 'NewSecurePass#2026',
+            'password_confirmation' => 'NewSecurePass#2026',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['current_password']);
+
+        $this->assertTrue((bool) \App\Models\User::find($student->_id)->must_change_password);
+    }
 }

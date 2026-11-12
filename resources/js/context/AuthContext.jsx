@@ -86,6 +86,11 @@ export function AuthProvider({ children }) {
         }
     };
 
+    const updateUser = (updatedUser) => {
+        setUser(updatedUser);
+        localStorage.setItem('equiply_user', JSON.stringify(updatedUser));
+    };
+
     return (
         <AuthContext.Provider
             value={{
@@ -96,6 +101,7 @@ export function AuthProvider({ children }) {
                 login,
                 register,
                 logout,
+                updateUser,
                 isCustodian: user?.role === 'custodian',
                 isAdmin: user?.role === 'admin',
             }}

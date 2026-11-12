@@ -11,6 +11,7 @@ import CustodianHistoryView from './components/CustodianHistoryView';
 import SpecsModal from './components/SpecsModal';
 import ReservationModal from './components/ReservationModal';
 import GuestPromptModal from './components/GuestPromptModal';
+import ForcePasswordChangeModal from './components/ForcePasswordChangeModal';
 import LoginPage from './components/LoginPage';
 import { CheckCircle2, Layers } from 'lucide-react';
 
@@ -191,6 +192,13 @@ function MainLayout({ onNavigateToLogin }) {
                     onNavigateToLogin();
                 }}
             />
+
+            {/* First-Login Password Change Gate Modal */}
+            {isAuthenticated && user?.must_change_password === true && (
+                <ForcePasswordChangeModal
+                    onSuccess={(msg) => showToast(msg)}
+                />
+            )}
         </div>
     );
 }

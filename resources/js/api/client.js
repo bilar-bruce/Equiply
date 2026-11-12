@@ -55,6 +55,10 @@ export const authApi = {
             localStorage.removeItem('equiply_user');
         }
     },
+    changePassword: async (payload) => {
+        const res = await api.post('/auth/change-password', payload);
+        return res.data;
+    },
 };
 
 export const itemsApi = {
