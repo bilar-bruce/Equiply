@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\RentalResource;
+use App\Mail\EquipmentDispatchedMail;
+use App\Mail\EquipmentReturnedReceiptMail;
+use App\Mail\ReservationConfirmedMail;
 use App\Models\Item;
 use App\Models\Rental;
 use Carbon\Carbon;
@@ -12,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class ReservationController extends Controller
@@ -167,6 +171,10 @@ class ReservationController extends Controller
         $rental->load(['item', 'borrower']);
         Cache::forget('equiply_category_counts');
 
+        if ($rental->borrower?->email) {
+            Mail::to($rental->borrower->email)->send(new ReservationConfirmedMail($rental));
+        }
+
         return (new RentalResource($rental))
             ->response()
             ->setStatusCode(201);
@@ -205,6 +213,10 @@ class ReservationController extends Controller
 
         $rental->load(['item', 'borrower', 'custodian']);
         Cache::forget('equiply_category_counts');
+
+        if ($rental->borrower?->email) {
+            Mail::to($rental->borrower->email)->send(new EquipmentDispatchedMail($rental));
+        }
 
         return response()->json([
             'message' => "Item successfully checked out to borrower.",
@@ -262,6 +274,10 @@ class ReservationController extends Controller
 
         $rental->load(['item', 'borrower', 'custodian']);
         Cache::forget('equiply_category_counts');
+
+        if ($rental->borrower?->email) {
+            Mail::to($rental->borrower->email)->send(new EquipmentReturnedReceiptMail($rental));
+        }
 
         return response()->json([
             'message' => 'Item successfully returned and checked in.',
