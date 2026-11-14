@@ -32,9 +32,9 @@ export default function CustodianHistoryView({ refreshKey }) {
             // Retrieve all rental records
             const res = await reservationsApi.list({ per_page: 100 });
             const all = res.data || [];
-            // Filter to historical records (returned or cancelled)
+            // Filter to historical records (returned, cancelled, or expired)
             const historical = all.filter(
-                (r) => r.status === 'returned' || r.status === 'cancelled'
+                (r) => r.status === 'returned' || r.status === 'cancelled' || r.status === 'expired'
             );
             setHistoryRentals(historical);
         } catch (err) {
@@ -169,6 +169,7 @@ export default function CustodianHistoryView({ refreshKey }) {
                         { id: 'all', label: 'All History' },
                         { id: 'returned', label: 'Returned' },
                         { id: 'cancelled', label: 'Cancelled' },
+                        { id: 'expired', label: 'Expired' },
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -201,6 +202,9 @@ export default function CustodianHistoryView({ refreshKey }) {
                     {filteredRentals.map((rental) => {
                         const isReturned = rental.status === 'returned';
                         const isCancelled = rental.status === 'cancelled';
+                        const isExpired = rental.status === 'expired';
+                        const hasOverdue =
+                            (rental.financials?.overdue_fee ?? 0) > 0 || Boolean(rental.financials?.is_overdue);
 
                         return (
                             <div
@@ -217,16 +221,26 @@ export default function CustodianHistoryView({ refreshKey }) {
                                             className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                                                 isReturned
                                                     ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
+                                                    : isExpired
+                                                    ? 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20'
                                                     : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700'
                                             }`}
                                         >
                                             {isReturned ? (
                                                 <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                            ) : isExpired ? (
+                                                <AlertCircle className="w-3 h-3 text-rose-500" />
                                             ) : (
                                                 <XCircle className="w-3 h-3 text-slate-500" />
                                             )}
                                             {rental.status}
                                         </span>
+                                        {hasOverdue && (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
+                                                <AlertCircle className="w-3 h-3" />
+                                                OVERDUE
+                                            </span>
+                                        )}
                                     </div>
 
                                     <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
@@ -271,6 +285,8 @@ export default function CustodianHistoryView({ refreshKey }) {
                                         <span className="font-semibold text-slate-800 dark:text-slate-200 block">
                                             {rental.schedule?.returned_time
                                                 ? new Date(rental.schedule.returned_time).toLocaleString()
+                                                : isExpired
+                                                ? 'Expired (Unclaimed)'
                                                 : isCancelled
                                                 ? 'Cancelled (Not Dispatched)'
                                                 : '—'}
@@ -291,6 +307,16 @@ export default function CustodianHistoryView({ refreshKey }) {
                                         <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-bold block">
                                             Fee: {formatPHP(rental.financials?.total_fee ?? 30)}
                                         </span>
+                                        {hasOverdue && (
+                                            <>
+                                                <span className="text-[11px] font-mono text-rose-600 dark:text-rose-400 font-bold block">
+                                                    Overdue: +{formatPHP(rental.financials.overdue_fee)}
+                                                </span>
+                                                <span className="text-[11px] font-mono text-slate-900 dark:text-white font-bold block">
+                                                    Total: {formatPHP(rental.financials.final_total ?? ((rental.financials.total_fee ?? 30) + (rental.financials.overdue_fee ?? 0)))}
+                                                </span>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
 

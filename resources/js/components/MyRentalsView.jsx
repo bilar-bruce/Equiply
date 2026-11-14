@@ -124,6 +124,10 @@ export default function MyRentalsView({ onRefreshTrigger, onNavigateToLogin, onO
                         const isActive = rental.status === 'active';
                         const isReturned = rental.status === 'returned';
                         const isExpired = rental.status === 'expired';
+                        const isOverdue =
+                            (isActive && rental.schedule?.due_time && nowMs > new Date(rental.schedule.due_time).getTime()) ||
+                            (rental.financials?.overdue_fee ?? 0) > 0 ||
+                            Boolean(rental.financials?.is_overdue);
                         const remainingMins =
                             isPending && rental.schedule?.expires_at
                                 ? Math.max(0, Math.ceil((new Date(rental.schedule.expires_at).getTime() - nowMs) / 60000))
@@ -152,6 +156,13 @@ export default function MyRentalsView({ onRefreshTrigger, onNavigateToLogin, onO
                                         >
                                             {rental.status}
                                         </span>
+
+                                        {isOverdue && (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
+                                                <AlertCircle className="w-3 h-3" />
+                                                OVERDUE
+                                            </span>
+                                        )}
 
                                         {isPending && remainingMins !== null && (
                                             <span
@@ -183,9 +194,19 @@ export default function MyRentalsView({ onRefreshTrigger, onNavigateToLogin, onO
 
                                         <div>
                                             <span className="text-slate-500 dark:text-slate-400 text-[11px] block">Rental Fee:</span>
-                                            <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                                            <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold block">
                                                 {formatPHP(rental.financials?.total_fee ?? 30)}
                                             </span>
+                                            {(rental.financials?.overdue_fee ?? 0) > 0 && (
+                                                <>
+                                                    <span className="font-mono text-rose-600 dark:text-rose-400 font-bold block text-[11px]">
+                                                        Overdue Fee: +{formatPHP(rental.financials.overdue_fee)}
+                                                    </span>
+                                                    <span className="font-mono text-slate-900 dark:text-white font-bold block text-[11px]">
+                                                        Final Total: {formatPHP(rental.financials.final_total ?? ((rental.financials.total_fee ?? 30) + rental.financials.overdue_fee))}
+                                                    </span>
+                                                </>
+                                            )}
                                         </div>
 
                                         <div>

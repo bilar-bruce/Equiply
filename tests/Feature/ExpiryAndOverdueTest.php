@@ -212,4 +212,126 @@ class ExpiryAndOverdueTest extends TestCase
 
         $this->assertEquals('available', $this->testItem->fresh()->availability_stat);
     }
+
+    public function test_late_checkin_computes_overdue_fee_rounded_up_and_final_total(): void
+    {
+        Mail::fake();
+
+        $this->testItem->availability_stat = 'rented';
+        $this->testItem->save();
+
+        // 2 hours and 15 minutes overdue -> rounds up to 3 hours @ ₱15.00/hr = ₱45.00
+        $overdueRental = Rental::create([
+            'rental_code' => 'RNT-OVD-LATE01',
+            'item_id' => $this->testItem->_id,
+            'borrower_id' => $this->student->_id,
+            'custodian_id' => $this->custodian->_id,
+            'status' => 'active',
+            'schedule' => [
+                'requested_at' => now()->subHours(5)->toIso8601String(),
+                'expires_at' => now()->subHours(4)->subMinutes(30)->toIso8601String(),
+                'due_time' => now()->subMinutes(135)->toIso8601String(),
+                'returned_time' => null,
+            ],
+            'item_snapshot' => [
+                'name' => $this->testItem->name,
+                'owner_type' => $this->testItem->owner_type,
+                'owner_id' => null,
+            ],
+            'condition_logs' => [
+                'condition_out' => 'Probes calibrated and verified',
+                'condition_in' => null,
+            ],
+            'financials' => [
+                'total_fee' => 30.00,
+                'collateral_held' => 'Academic Clearance Hold: ' . $this->student->id_number,
+            ],
+        ]);
+
+        Sanctum::actingAs($this->custodian);
+
+        $res = $this->postJson("/api/reservations/{$overdueRental->_id}/checkin", [
+            'condition_in' => 'Returned late, inspected and functional',
+            'mark_maintenance' => false,
+        ]);
+
+        $res->assertStatus(200)
+            ->assertJsonPath('rental.status', 'returned')
+            ->assertJsonPath('rental.financials.overdue_hours', 3)
+            ->assertJsonPath('rental.financials.is_overdue', true)
+            ->assertJsonPath('rental.schedule.is_overdue', true)
+            ->assertJsonPath('rental.schedule.overdue_hours', 3);
+
+        $fresh = $overdueRental->fresh();
+        $this->assertEquals('returned', $fresh->status);
+        $this->assertSame(3, $fresh->financials['overdue_hours']);
+        $this->assertEquals(15.00, $fresh->financials['overdue_rate_per_hour']);
+        $this->assertEquals(45.00, $fresh->financials['overdue_fee']);
+        $this->assertTrue($fresh->financials['is_overdue']);
+        $this->assertEquals(75.00, $fresh->financials['final_total']);
+        $this->assertTrue($fresh->schedule['is_overdue']);
+        $this->assertSame(3, $fresh->schedule['overdue_hours']);
+        $this->assertNotEmpty($fresh->schedule['returned_time']);
+        $this->assertEquals('available', $this->testItem->fresh()->availability_stat);
+    }
+
+    public function test_on_time_checkin_records_zero_overdue_fee(): void
+    {
+        Mail::fake();
+
+        $this->testItem->availability_stat = 'rented';
+        $this->testItem->save();
+
+        $onTimeRental = Rental::create([
+            'rental_code' => 'RNT-OVD-ONTIME01',
+            'item_id' => $this->testItem->_id,
+            'borrower_id' => $this->student->_id,
+            'custodian_id' => $this->custodian->_id,
+            'status' => 'active',
+            'schedule' => [
+                'requested_at' => now()->subHours(2)->toIso8601String(),
+                'expires_at' => now()->subMinutes(90)->toIso8601String(),
+                'due_time' => now()->addHours(2)->toIso8601String(),
+                'returned_time' => null,
+            ],
+            'item_snapshot' => [
+                'name' => $this->testItem->name,
+                'owner_type' => $this->testItem->owner_type,
+                'owner_id' => null,
+            ],
+            'condition_logs' => [
+                'condition_out' => 'Probes calibrated and verified',
+                'condition_in' => null,
+            ],
+            'financials' => [
+                'total_fee' => 30.00,
+                'collateral_held' => 'Academic Clearance Hold: ' . $this->student->id_number,
+            ],
+        ]);
+
+        Sanctum::actingAs($this->custodian);
+
+        $res = $this->postJson("/api/reservations/{$onTimeRental->_id}/checkin", [
+            'condition_in' => 'Returned on time in pristine condition',
+            'mark_maintenance' => false,
+        ]);
+
+        $res->assertStatus(200)
+            ->assertJsonPath('rental.status', 'returned')
+            ->assertJsonPath('rental.financials.overdue_hours', 0)
+            ->assertJsonPath('rental.financials.is_overdue', false)
+            ->assertJsonPath('rental.schedule.is_overdue', false)
+            ->assertJsonPath('rental.schedule.overdue_hours', 0);
+
+        $fresh = $onTimeRental->fresh();
+        $this->assertEquals('returned', $fresh->status);
+        $this->assertSame(0, $fresh->financials['overdue_hours']);
+        $this->assertEquals(15.00, $fresh->financials['overdue_rate_per_hour']);
+        $this->assertEquals(0.00, $fresh->financials['overdue_fee']);
+        $this->assertFalse($fresh->financials['is_overdue']);
+        $this->assertEquals(30.00, $fresh->financials['final_total']);
+        $this->assertFalse($fresh->schedule['is_overdue']);
+        $this->assertSame(0, $fresh->schedule['overdue_hours']);
+        $this->assertEquals('available', $this->testItem->fresh()->availability_stat);
+    }
 }

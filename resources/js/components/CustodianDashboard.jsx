@@ -302,6 +302,14 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
                         const isPending = rental.status === 'pending' || rental.status === 'reserved';
                         const isActive = rental.status === 'active';
                         const isReturned = rental.status === 'returned';
+                        const isCurrentlyOverdue =
+                            isActive &&
+                            rental.schedule?.due_time &&
+                            new Date() > new Date(rental.schedule.due_time);
+                        const hadOverduePenalty =
+                            isReturned &&
+                            ((rental.financials?.overdue_fee ?? 0) > 0 || rental.financials?.is_overdue);
+                        const isOverdue = isCurrentlyOverdue || hadOverduePenalty;
 
                         return (
                             <div
@@ -325,6 +333,13 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
                                         >
                                             {rental.status}
                                         </span>
+
+                                        {isOverdue && (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
+                                                <AlertTriangle className="w-3 h-3" />
+                                                OVERDUE
+                                            </span>
+                                        )}
 
                                         <span className="text-[11px] text-slate-500 dark:text-slate-400">
                                             Requested: {new Date(rental.schedule?.requested_at).toLocaleString()}
@@ -357,9 +372,17 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
                                             <span className="text-slate-500 dark:text-slate-400 text-[10px] block uppercase font-medium">
                                                 Collateral Vault
                                             </span>
-                                            <span className="font-semibold text-ustp-navy dark:text-ustp-gold font-mono">
+                                            <span className="font-semibold text-ustp-navy dark:text-ustp-gold font-mono block">
                                                 {rental.financials?.collateral_held || 'Academic Clearance Hold'}
                                             </span>
+                                            <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold block">
+                                                Base Fee: {formatPHP(rental.financials?.total_fee ?? 30)}
+                                            </span>
+                                            {(rental.financials?.overdue_fee ?? 0) > 0 && (
+                                                <span className="text-[11px] font-mono text-rose-600 dark:text-rose-400 font-bold block">
+                                                    +{formatPHP(rental.financials.overdue_fee)} • Final Total: {formatPHP(rental.financials.final_total ?? ((rental.financials?.total_fee ?? 30) + rental.financials.overdue_fee))}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
 
@@ -417,14 +440,38 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
             )}
 
             {/* Check-in Return Modal */}
-            {checkinModalRental && (
+            {checkinModalRental && (() => {
+                const baseFee = Number(checkinModalRental.financials?.total_fee ?? 30);
+                const isModalOverdue =
+                    checkinModalRental.schedule?.due_time &&
+                    Date.now() > new Date(checkinModalRental.schedule.due_time).getTime();
+                const overdueHours = isModalOverdue
+                    ? Math.max(
+                          1,
+                          Math.ceil(
+                              (Date.now() - new Date(checkinModalRental.schedule.due_time).getTime()) /
+                                  3600000
+                          )
+                      )
+                    : 0;
+                const overdueFee = overdueHours * 15;
+
+                return (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
                     <div className="w-full max-w-md rounded-2xl bg-white dark:bg-[#151136] border border-slate-200 dark:border-slate-800 shadow-2xl p-6">
                         <div className="flex justify-between items-start mb-4">
                             <div>
-                                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
-                                    {checkinModalRental.rental_code}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                                        {checkinModalRental.rental_code}
+                                    </span>
+                                    {isModalOverdue && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
+                                            <AlertTriangle className="w-3 h-3" />
+                                            OVERDUE
+                                        </span>
+                                    )}
+                                </div>
                                 <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1">
                                     Process Return Check-in
                                 </h3>
@@ -450,6 +497,27 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
                                     {checkinModalRental.financials?.collateral_held}
                                 </span>
                             </div>
+
+                            {isModalOverdue && (
+                                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60 text-xs space-y-1.5">
+                                    <div className="flex items-center gap-1.5 font-bold text-rose-700 dark:text-rose-300">
+                                        <AlertTriangle className="w-3.5 h-3.5" />
+                                        <span>Overdue Penalty Settlement</span>
+                                    </div>
+                                    <div className="flex justify-between text-slate-600 dark:text-slate-300">
+                                        <span>Base Rental Fee:</span>
+                                        <span className="font-mono font-semibold">{formatPHP(baseFee)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-rose-700 dark:text-rose-300">
+                                        <span>Overdue Surcharge ({overdueHours} hr × {formatPHP(15)}/hr):</span>
+                                        <span className="font-mono font-bold">+{formatPHP(overdueFee)}</span>
+                                    </div>
+                                    <div className="flex justify-between pt-1.5 border-t border-rose-200 dark:border-rose-800/60 font-bold text-slate-900 dark:text-white">
+                                        <span>Final Total Due:</span>
+                                        <span className="font-mono text-rose-700 dark:text-rose-300">{formatPHP(baseFee + overdueFee)}</span>
+                                    </div>
+                                </div>
+                            )}
 
                             <div>
                                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -499,7 +567,8 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
                         </form>
                     </div>
                 </div>
-            )}
+                );
+            })()}
             {/* In-Person Student Enrollment Modal */}
             <EnrollStudentModal
                 isOpen={enrollModalOpen}

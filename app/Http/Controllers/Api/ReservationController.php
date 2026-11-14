@@ -279,15 +279,40 @@ class ReservationController extends Controller
                 $item->save();
             }
 
-            // Update rental schedule and condition log
+            // Update rental schedule, overdue penalty, and condition log
+            $now = now();
             $schedule = $rental->schedule ?? [];
-            $schedule['returned_time'] = now()->toIso8601String();
+            $dueTime = ! empty($schedule['due_time']) ? Carbon::parse($schedule['due_time']) : null;
+
+            if ($dueTime && $now->greaterThan($dueTime)) {
+                $overdueSeconds = $dueTime->diffInSeconds($now);
+                $overdueHours = (int) max(1, ceil($overdueSeconds / 3600));
+                $overdueFee = round($overdueHours * Rental::OVERDUE_RATE_PER_HOUR, 2);
+                $isOverdue = true;
+            } else {
+                $overdueHours = 0;
+                $overdueFee = 0.00;
+                $isOverdue = false;
+            }
+
+            $schedule['returned_time'] = $now->toIso8601String();
+            $schedule['is_overdue'] = $isOverdue;
+            $schedule['overdue_hours'] = $overdueHours;
+
+            $financials = $rental->financials ?? [];
+            $baseFee = round((float) ($financials['total_fee'] ?? 0.00), 2);
+            $financials['overdue_hours'] = $overdueHours;
+            $financials['overdue_rate_per_hour'] = Rental::OVERDUE_RATE_PER_HOUR;
+            $financials['overdue_fee'] = $overdueFee;
+            $financials['is_overdue'] = $isOverdue;
+            $financials['final_total'] = round($baseFee + $overdueFee, 2);
 
             $conditionLogs = $rental->condition_logs ?? [];
             $conditionLogs['condition_in'] = $validated['condition_in'];
 
             $rental->status = 'returned';
             $rental->schedule = $schedule;
+            $rental->financials = $financials;
             $rental->condition_logs = $conditionLogs;
             $rental->save();
 
