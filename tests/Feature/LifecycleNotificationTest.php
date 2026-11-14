@@ -4,6 +4,9 @@ namespace Tests\Feature;
 
 use App\Mail\EquipmentDispatchedMail;
 use App\Mail\EquipmentReturnedReceiptMail;
+use App\Mail\PeerIntakeVerifiedMail;
+use App\Mail\PeerItemBorrowedMail;
+use App\Mail\PeerItemReturnedMail;
 use App\Mail\ReservationConfirmedMail;
 use App\Models\Item;
 use App\Models\Rental;
@@ -175,9 +178,104 @@ class LifecycleNotificationTest extends TestCase
                 && str_contains($html, '#F5A623');
         });
 
+        Mail::assertNotSent(PeerItemBorrowedMail::class);
+        Mail::assertNotSent(PeerItemReturnedMail::class);
+
         // Clean up
         Rental::where('_id', $rentalId)->delete();
         $this->facilityItem->availability_stat = 'available';
         $this->facilityItem->save();
+    }
+
+    public function test_peer_lender_receives_intake_borrowed_and_returned_alerts_and_facility_items_do_not_trigger_peer_emails(): void
+    {
+        Mail::fake();
+
+        // 1. Custodian verifies physical desk intake for P2P listing
+        $this->p2pItem->availability_stat = 'pending_intake';
+        $this->p2pItem->save();
+
+        Sanctum::actingAs($this->custodian);
+
+        $intakeRes = $this->postJson("/api/custodian/items/{$this->p2pItem->_id}/verify-intake");
+        $intakeRes->assertStatus(200);
+
+        Mail::assertSent(PeerIntakeVerifiedMail::class, function (PeerIntakeVerifiedMail $mail) {
+            $html = $mail->render();
+
+            return $mail->hasTo($this->peerLender->email)
+                && str_contains($html, $this->peerLender->name)
+                && str_contains($html, $this->p2pItem->item_code)
+                && str_contains($html, $this->p2pItem->name)
+                && str_contains($html, $this->p2pItem->category)
+                && str_contains($html, '45.00')
+                && str_contains($html, 'available')
+                && str_contains($html, '#1B1642')
+                && str_contains($html, '#F5A623');
+        });
+
+        // 2. Student borrower reserves the verified P2P item
+        Sanctum::actingAs($this->student);
+
+        $collateral = 'Academic Clearance Hold: ' . $this->student->id_number;
+        $conditionOut = 'Complete Uno R3 kit with breadboard and jumper wires';
+
+        $reserveRes = $this->postJson('/api/reservations', [
+            'item_id' => (string) $this->p2pItem->_id,
+            'due_time' => now()->addHours(4)->toIso8601String(),
+            'collateral_held' => $collateral,
+            'condition_out' => $conditionOut,
+        ]);
+
+        $reserveRes->assertStatus(201);
+        $rentalId = $reserveRes->json('data.id');
+        $rentalCode = $reserveRes->json('data.rental_code');
+
+        // 3. Custodian checks out the P2P item -> Peer Lender receives PeerItemBorrowedMail
+        Sanctum::actingAs($this->custodian);
+
+        $checkoutRes = $this->postJson("/api/reservations/{$rentalId}/checkout");
+        $checkoutRes->assertStatus(200);
+
+        Mail::assertSent(PeerItemBorrowedMail::class, function (PeerItemBorrowedMail $mail) use ($rentalCode, $conditionOut) {
+            $html = $mail->render();
+
+            return $mail->hasTo($this->peerLender->email)
+                && str_contains($html, $this->peerLender->name)
+                && str_contains($html, $rentalCode)
+                && str_contains($html, $this->p2pItem->name)
+                && str_contains($html, $this->student->name)
+                && str_contains($html, $conditionOut)
+                && str_contains($html, '45.00')
+                && str_contains($html, '#1B1642')
+                && str_contains($html, '#F5A623');
+        });
+
+        // 4. Custodian checks in the P2P item -> Peer Lender receives PeerItemReturnedMail
+        $conditionIn = 'All Arduino components verified intact on return';
+
+        $checkinRes = $this->postJson("/api/reservations/{$rentalId}/checkin", [
+            'condition_in' => $conditionIn,
+            'mark_maintenance' => false,
+        ]);
+        $checkinRes->assertStatus(200);
+
+        Mail::assertSent(PeerItemReturnedMail::class, function (PeerItemReturnedMail $mail) use ($rentalCode, $conditionIn) {
+            $html = $mail->render();
+
+            return $mail->hasTo($this->peerLender->email)
+                && str_contains($html, $this->peerLender->name)
+                && str_contains($html, $rentalCode)
+                && str_contains($html, $this->p2pItem->name)
+                && str_contains($html, $conditionIn)
+                && str_contains($html, '45.00')
+                && str_contains($html, '#1B1642')
+                && str_contains($html, '#F5A623');
+        });
+
+        // Clean up
+        Rental::where('_id', $rentalId)->delete();
+        $this->p2pItem->availability_stat = 'available';
+        $this->p2pItem->save();
     }
 }

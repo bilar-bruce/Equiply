@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\RentalResource;
 use App\Mail\EquipmentDispatchedMail;
 use App\Mail\EquipmentReturnedReceiptMail;
+use App\Mail\PeerItemBorrowedMail;
+use App\Mail\PeerItemReturnedMail;
 use App\Mail\ReservationConfirmedMail;
 use App\Models\Item;
 use App\Models\Rental;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -218,6 +221,14 @@ class ReservationController extends Controller
             Mail::to($rental->borrower->email)->send(new EquipmentDispatchedMail($rental));
         }
 
+        if (($rental->item?->owner_type ?? $rental->item_snapshot['owner_type'] ?? null) === 'student') {
+            $ownerId = $rental->item?->owner_user_id ?? $rental->item_snapshot['owner_id'] ?? null;
+            $owner = $ownerId ? User::find($ownerId) : null;
+            if ($owner?->email) {
+                Mail::to($owner->email)->send(new PeerItemBorrowedMail($rental, $owner));
+            }
+        }
+
         return response()->json([
             'message' => "Item successfully checked out to borrower.",
             'rental' => new RentalResource($rental),
@@ -277,6 +288,14 @@ class ReservationController extends Controller
 
         if ($rental->borrower?->email) {
             Mail::to($rental->borrower->email)->send(new EquipmentReturnedReceiptMail($rental));
+        }
+
+        if (($rental->item?->owner_type ?? $rental->item_snapshot['owner_type'] ?? null) === 'student') {
+            $ownerId = $rental->item?->owner_user_id ?? $rental->item_snapshot['owner_id'] ?? null;
+            $owner = $ownerId ? User::find($ownerId) : null;
+            if ($owner?->email) {
+                Mail::to($owner->email)->send(new PeerItemReturnedMail($rental, $owner));
+            }
         }
 
         return response()->json([

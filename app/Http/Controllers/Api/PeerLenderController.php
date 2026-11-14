@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ItemResource;
+use App\Mail\PeerIntakeVerifiedMail;
 use App\Models\Item;
 use App\Models\Rental;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class PeerLenderController extends Controller
@@ -215,8 +218,14 @@ class PeerLenderController extends Controller
 
         $item->availability_stat = 'available';
         $item->save();
+        $item->load('owner');
 
         Cache::forget('equiply_category_counts');
+
+        $owner = $item->owner ?? ($item->owner_user_id ? User::find($item->owner_user_id) : null);
+        if ($owner?->email) {
+            Mail::to($owner->email)->send(new PeerIntakeVerifiedMail($item, $owner));
+        }
 
         return response()->json([
             'message' => "Equipment [{$item->item_code}] verified and active in campus catalog.",
