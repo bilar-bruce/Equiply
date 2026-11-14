@@ -36,6 +36,8 @@ class Rental extends Model
         'item_snapshot',
         'condition_logs',
         'financials',
+        'reminder_sent_at',
+        'overdue_alert_sent_at',
     ];
 
     /**

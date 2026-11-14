@@ -28,6 +28,8 @@ class RentalResource extends JsonResource
             'item_snapshot' => $this->item_snapshot ?? [],
             'condition_logs' => $this->condition_logs ?? [],
             'financials' => $this->financials ?? [],
+            'reminder_sent_at' => $this->reminder_sent_at ?? ($this->schedule['reminder_sent_at'] ?? null),
+            'overdue_alert_sent_at' => $this->overdue_alert_sent_at ?? ($this->schedule['overdue_alert_sent_at'] ?? null),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

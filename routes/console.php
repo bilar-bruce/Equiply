@@ -1,8 +1,13 @@
 <?php
 
+use App\Mail\LoanDueSoonMail;
+use App\Mail\LoanOverdueAlertMail;
+use App\Models\Rental;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -113,6 +118,51 @@ Artisan::command('mongo:token-test', function () {
     $this->line('Stored personal_access_tokens in MongoDB: ' . $tokenCount);
     return 0;
 })->purpose('Verify Sanctum token creation on MongoDB');
+
+Artisan::command('equiply:send-loan-reminders', function () {
+    $activeRentals = Rental::with(['item', 'borrower'])->where('status', 'active')->get();
+    $dueSoonCount = 0;
+    $overdueCount = 0;
+
+    foreach ($activeRentals as $rental) {
+        if (! $rental->borrower?->email || empty($rental->schedule['due_time'])) {
+            continue;
+        }
+
+        $dueTime = \Carbon\Carbon::parse($rental->schedule['due_time']);
+        $now = now();
+
+        if ($now->greaterThan($dueTime)) {
+            if (empty($rental->overdue_alert_sent_at) && empty($rental->schedule['overdue_alert_sent_at'])) {
+                Mail::to($rental->borrower->email)->send(new LoanOverdueAlertMail($rental));
+                $timestamp = $now->toIso8601String();
+                $schedule = $rental->schedule ?? [];
+                $schedule['overdue_alert_sent_at'] = $timestamp;
+                $rental->overdue_alert_sent_at = $timestamp;
+                $rental->schedule = $schedule;
+                $rental->save();
+                $overdueCount++;
+            }
+        } elseif ($dueTime->lessThanOrEqualTo($now->copy()->addMinutes(30))) {
+            if (empty($rental->reminder_sent_at) && empty($rental->schedule['reminder_sent_at'])) {
+                Mail::to($rental->borrower->email)->send(new LoanDueSoonMail($rental));
+                $timestamp = $now->toIso8601String();
+                $schedule = $rental->schedule ?? [];
+                $schedule['reminder_sent_at'] = $timestamp;
+                $rental->reminder_sent_at = $timestamp;
+                $rental->schedule = $schedule;
+                $rental->save();
+                $dueSoonCount++;
+            }
+        }
+    }
+
+    $this->info("Processed active rentals: {$dueSoonCount} due-soon reminder(s) and {$overdueCount} overdue alert(s) dispatched.");
+    return 0;
+})->purpose('Send due-soon (30m) and overdue email reminders for active equipment rentals');
+
+Schedule::command('equiply:send-loan-reminders')->everyFiveMinutes();
+
 
 
 

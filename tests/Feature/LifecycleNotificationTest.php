@@ -2,8 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Http\Resources\RentalResource;
 use App\Mail\EquipmentDispatchedMail;
 use App\Mail\EquipmentReturnedReceiptMail;
+use App\Mail\LoanDueSoonMail;
+use App\Mail\LoanOverdueAlertMail;
 use App\Mail\PeerIntakeVerifiedMail;
 use App\Mail\PeerItemBorrowedMail;
 use App\Mail\PeerItemReturnedMail;
@@ -277,5 +280,177 @@ class LifecycleNotificationTest extends TestCase
         Rental::where('_id', $rentalId)->delete();
         $this->p2pItem->availability_stat = 'available';
         $this->p2pItem->save();
+    }
+
+    public function test_send_loan_reminders_command_dispatches_due_soon_and_overdue_emails_once_per_rental(): void
+    {
+        Mail::fake();
+
+        Rental::whereIn('rental_code', ['EQ-REM-DUESOON', 'EQ-REM-OVERDUE', 'EQ-REM-LATER'])->delete();
+
+        $dueSoonTime = now()->addMinutes(20)->toIso8601String();
+        $overdueTime = now()->subMinutes(45)->toIso8601String();
+        $laterTime = now()->addHours(3)->toIso8601String();
+        $collateral = 'Academic Clearance Hold: ' . $this->student->id_number;
+
+        $dueSoonRental = Rental::create([
+            'rental_code' => 'EQ-REM-DUESOON',
+            'item_id' => $this->facilityItem->_id,
+            'borrower_id' => $this->student->_id,
+            'custodian_id' => $this->custodian->_id,
+            'status' => 'active',
+            'schedule' => [
+                'start_time' => now()->subHours(2)->toIso8601String(),
+                'due_time' => $dueSoonTime,
+                'return_time' => null,
+            ],
+            'item_snapshot' => [
+                'name' => $this->facilityItem->name,
+                'category' => $this->facilityItem->category,
+            ],
+            'condition_logs' => [
+                'condition_out' => 'Clean and tested',
+                'condition_in' => null,
+            ],
+            'financials' => [
+                'collateral_held' => $collateral,
+                'base_fee' => 30.00,
+                'overdue_fee' => 0.00,
+                'total_paid' => 30.00,
+            ],
+        ]);
+
+        $overdueRental = Rental::create([
+            'rental_code' => 'EQ-REM-OVERDUE',
+            'item_id' => $this->p2pItem->_id,
+            'borrower_id' => $this->student->_id,
+            'custodian_id' => $this->custodian->_id,
+            'status' => 'active',
+            'schedule' => [
+                'start_time' => now()->subHours(4)->toIso8601String(),
+                'due_time' => $overdueTime,
+                'return_time' => null,
+            ],
+            'item_snapshot' => [
+                'name' => $this->p2pItem->name,
+                'category' => $this->p2pItem->category,
+            ],
+            'condition_logs' => [
+                'condition_out' => 'Full kit released',
+                'condition_in' => null,
+            ],
+            'financials' => [
+                'collateral_held' => $collateral,
+                'base_fee' => 45.00,
+                'overdue_fee' => 0.00,
+                'total_paid' => 45.00,
+            ],
+        ]);
+
+        $laterRental = Rental::create([
+            'rental_code' => 'EQ-REM-LATER',
+            'item_id' => $this->facilityItem->_id,
+            'borrower_id' => $this->student->_id,
+            'custodian_id' => $this->custodian->_id,
+            'status' => 'active',
+            'schedule' => [
+                'start_time' => now()->subHour()->toIso8601String(),
+                'due_time' => $laterTime,
+                'return_time' => null,
+            ],
+            'item_snapshot' => [
+                'name' => $this->facilityItem->name,
+                'category' => $this->facilityItem->category,
+            ],
+            'condition_logs' => [
+                'condition_out' => 'Standard condition',
+                'condition_in' => null,
+            ],
+            'financials' => [
+                'collateral_held' => $collateral,
+                'base_fee' => 30.00,
+                'overdue_fee' => 0.00,
+                'total_paid' => 30.00,
+            ],
+        ]);
+
+        try {
+            $this->artisan('equiply:send-loan-reminders')->assertExitCode(0);
+
+            // 1. Active loan due in 20 minutes receives LoanDueSoonMail and sets reminder_sent_at
+            Mail::assertSent(LoanDueSoonMail::class, function (LoanDueSoonMail $mail) use ($dueSoonTime, $collateral) {
+                if ($mail->rental->rental_code !== 'EQ-REM-DUESOON') {
+                    return false;
+                }
+
+                $html = $mail->render();
+
+                return $mail->hasTo($this->student->email)
+                    && str_contains($html, $this->student->name)
+                    && str_contains($html, 'EQ-REM-DUESOON')
+                    && str_contains($html, $this->facilityItem->name)
+                    && str_contains($html, $dueSoonTime)
+                    && str_contains($html, $collateral)
+                    && str_contains($html, '15.00')
+                    && str_contains($html, '#1B1642')
+                    && str_contains($html, '#F5A623');
+            });
+
+            $dueSoonFresh = $dueSoonRental->fresh();
+            $this->assertNotNull($dueSoonFresh->reminder_sent_at);
+            $this->assertNotEmpty($dueSoonFresh->schedule['reminder_sent_at'] ?? null);
+            $this->assertNull($dueSoonFresh->overdue_alert_sent_at);
+
+            $dueSoonResource = (new RentalResource($dueSoonFresh))->resolve();
+            $this->assertEquals($dueSoonFresh->reminder_sent_at, $dueSoonResource['reminder_sent_at']);
+            $this->assertNull($dueSoonResource['overdue_alert_sent_at']);
+
+            // 2. Active loan 45 minutes past due_time receives LoanOverdueAlertMail and sets overdue_alert_sent_at
+            Mail::assertSent(LoanOverdueAlertMail::class, function (LoanOverdueAlertMail $mail) use ($overdueTime, $collateral) {
+                if ($mail->rental->rental_code !== 'EQ-REM-OVERDUE') {
+                    return false;
+                }
+
+                $html = $mail->render();
+
+                return $mail->hasTo($this->student->email)
+                    && str_contains($html, $this->student->name)
+                    && str_contains($html, 'EQ-REM-OVERDUE')
+                    && str_contains($html, $this->p2pItem->name)
+                    && str_contains($html, $overdueTime)
+                    && str_contains($html, $collateral)
+                    && str_contains($html, '15.00')
+                    && str_contains($html, '#1B1642')
+                    && str_contains($html, '#F5A623');
+            });
+
+            $overdueFresh = $overdueRental->fresh();
+            $this->assertNotNull($overdueFresh->overdue_alert_sent_at);
+            $this->assertNotEmpty($overdueFresh->schedule['overdue_alert_sent_at'] ?? null);
+            $this->assertNull($overdueFresh->reminder_sent_at);
+
+            $overdueResource = (new RentalResource($overdueFresh))->resolve();
+            $this->assertEquals($overdueFresh->overdue_alert_sent_at, $overdueResource['overdue_alert_sent_at']);
+            $this->assertNull($overdueResource['reminder_sent_at']);
+
+            // 3. Active loan due in 3 hours receives neither email
+            Mail::assertNotSent(LoanDueSoonMail::class, fn (LoanDueSoonMail $mail) => $mail->rental->rental_code === 'EQ-REM-LATER');
+            Mail::assertNotSent(LoanOverdueAlertMail::class, fn (LoanOverdueAlertMail $mail) => $mail->rental->rental_code === 'EQ-REM-LATER');
+
+            $laterFresh = $laterRental->fresh();
+            $this->assertNull($laterFresh->reminder_sent_at);
+            $this->assertNull($laterFresh->overdue_alert_sent_at);
+
+            // 4. Running equiply:send-loan-reminders a second time sends zero duplicate emails
+            Mail::fake();
+            $this->artisan('equiply:send-loan-reminders')->assertExitCode(0);
+            Mail::assertNothingSent();
+        } finally {
+            Rental::whereIn('_id', [
+                $dueSoonRental->_id,
+                $overdueRental->_id,
+                $laterRental->_id,
+            ])->delete();
+        }
     }
 }
