@@ -163,6 +163,11 @@ Artisan::command('equiply:send-loan-reminders', function () {
 
 Schedule::command('equiply:send-loan-reminders')->everyFiveMinutes();
 
+Artisan::command('equiply:expire-unclaimed-reservations', function () {
+    $count = \App\Models\Rental::expireUnclaimedReservations();
+    $this->info("Expired {$count} unclaimed reservation(s).");
+    return 0;
+})->purpose('Expire unclaimed equipment reservations past their 30-minute pickup window');
 
-
+Schedule::command('equiply:expire-unclaimed-reservations')->everyMinute();
 

@@ -18,8 +18,14 @@ export default function MyRentalsView({ onRefreshTrigger, onNavigateToLogin, onO
     const [myRentals, setMyRentals] = useState([]);
     const [loading, setLoading] = useState(false);
     const [cancellingId, setCancellingId] = useState(null);
+    const [nowMs, setNowMs] = useState(() => Date.now());
 
     const handleLoginClick = onNavigateToLogin || onOpenAuthModal;
+
+    useEffect(() => {
+        const timer = setInterval(() => setNowMs(Date.now()), 15000);
+        return () => clearInterval(timer);
+    }, []);
 
     const fetchMyRentals = async () => {
         if (!isAuthenticated) return;
@@ -117,6 +123,11 @@ export default function MyRentalsView({ onRefreshTrigger, onNavigateToLogin, onO
                         const isPending = rental.status === 'pending' || rental.status === 'reserved';
                         const isActive = rental.status === 'active';
                         const isReturned = rental.status === 'returned';
+                        const isExpired = rental.status === 'expired';
+                        const remainingMins =
+                            isPending && rental.schedule?.expires_at
+                                ? Math.max(0, Math.ceil((new Date(rental.schedule.expires_at).getTime() - nowMs) / 60000))
+                                : null;
 
                         return (
                             <div
@@ -124,7 +135,7 @@ export default function MyRentalsView({ onRefreshTrigger, onNavigateToLogin, onO
                                 className="p-5 rounded-2xl flat-card flex flex-col md:flex-row md:items-center justify-between gap-4"
                             >
                                 <div className="space-y-1.5 flex-1">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
                                         <span className="font-mono text-xs font-bold text-ustp-navy dark:text-white bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
                                             {rental.rental_code}
                                         </span>
@@ -134,11 +145,28 @@ export default function MyRentalsView({ onRefreshTrigger, onNavigateToLogin, onO
                                                     ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20'
                                                     : isActive
                                                     ? 'bg-ustp-navy/10 text-ustp-navy dark:bg-ustp-gold/10 dark:text-ustp-gold border border-ustp-navy/20 dark:border-ustp-gold/20'
+                                                    : isExpired
+                                                    ? 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20'
                                                     : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
                                             }`}
                                         >
                                             {rental.status}
                                         </span>
+
+                                        {isPending && remainingMins !== null && (
+                                            <span
+                                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                                                    remainingMins <= 5
+                                                        ? 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/25'
+                                                        : 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/25'
+                                                }`}
+                                            >
+                                                <Clock className="w-3 h-3" />
+                                                {remainingMins > 0
+                                                    ? `Pickup at Desk within ${remainingMins} mins`
+                                                    : 'Pickup window expired'}
+                                            </span>
+                                        )}
                                     </div>
 
                                     <h3 className="font-bold text-base text-slate-900 dark:text-white">
@@ -192,6 +220,13 @@ export default function MyRentalsView({ onRefreshTrigger, onNavigateToLogin, onO
                                         <span className="text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1">
                                             <CheckCircle2 className="w-3.5 h-3.5" />
                                             Returned & Closed
+                                        </span>
+                                    )}
+
+                                    {isExpired && (
+                                        <span className="text-xs text-rose-700 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1">
+                                            <AlertCircle className="w-3.5 h-3.5" />
+                                            Unclaimed • Expired
                                         </span>
                                     )}
                                 </div>

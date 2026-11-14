@@ -29,6 +29,8 @@ class ReservationController extends Controller
      */
     public function index(Request $request): AnonymousResourceCollection
     {
+        Rental::expireUnclaimedReservations();
+
         $user = $request->user();
         $query = Rental::query()->with(['item', 'borrower', 'custodian']);
 
@@ -68,6 +70,8 @@ class ReservationController extends Controller
      */
     public function show(Request $request, string $id): RentalResource
     {
+        Rental::expireUnclaimedReservations();
+
         $rental = Rental::with(['item', 'borrower', 'custodian'])
             ->where('_id', $id)
             ->orWhere('rental_code', $id)
@@ -87,6 +91,8 @@ class ReservationController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        Rental::expireUnclaimedReservations();
+
         $validated = $request->validate([
             'item_id' => 'required|string',
             'due_time' => 'required|date|after:now',
@@ -135,7 +141,9 @@ class ReservationController extends Controller
             }
 
             $dueTime = Carbon::parse($validated['due_time'])->toIso8601String();
-            $requestedAt = now()->toIso8601String();
+            $now = now();
+            $requestedAt = $now->toIso8601String();
+            $expiresAt = $now->copy()->addMinutes(30)->toIso8601String();
 
             // Calculate flat rental fee for borrowing checkout session
             $flatRate = (float) ($item->rental_rate_flat ?? $item->rental_rate_hr ?? 30.00);
@@ -150,6 +158,7 @@ class ReservationController extends Controller
                 'status' => 'pending',
                 'schedule' => [
                     'requested_at' => $requestedAt,
+                    'expires_at' => $expiresAt,
                     'due_time' => $dueTime,
                     'returned_time' => null,
                 ],
@@ -188,6 +197,8 @@ class ReservationController extends Controller
      */
     public function checkout(Request $request, string $id): JsonResponse
     {
+        Rental::expireUnclaimedReservations();
+
         $custodian = $request->user();
         if ($custodian->role !== 'custodian') {
             abort(403, 'Only facility custodians can authorize item checkout dispatch.');

@@ -7,6 +7,8 @@ use MongoDB\Laravel\Relations\BelongsTo;
 
 class Rental extends Model
 {
+    public const OVERDUE_RATE_PER_HOUR = 15.00;
+
     /**
      * The connection name for the model.
      *
@@ -86,5 +88,40 @@ class Rental extends Model
     public function custodian(): BelongsTo
     {
         return $this->belongsTo(User::class, 'custodian_id');
+    }
+
+    /**
+     * Auto-expire unclaimed pending/reserved reservations past their 30-minute pickup window.
+     */
+    public static function expireUnclaimedReservations(): int
+    {
+        $unclaimed = static::whereIn('status', ['pending', 'reserved'])->get();
+        $expiredCount = 0;
+        $now = now();
+
+        foreach ($unclaimed as $rental) {
+            $expiresAt = $rental->schedule['expires_at'] ?? null;
+            if ($expiresAt && \Carbon\Carbon::parse($expiresAt)->lessThanOrEqualTo($now)) {
+                $schedule = $rental->schedule ?? [];
+                $schedule['expired_at'] = $now->toIso8601String();
+                $rental->status = 'expired';
+                $rental->schedule = $schedule;
+                $rental->save();
+
+                $item = Item::where('_id', $rental->item_id)->first();
+                if ($item && $item->availability_stat === 'reserved') {
+                    $item->availability_stat = 'available';
+                    $item->save();
+                }
+
+                $expiredCount++;
+            }
+        }
+
+        if ($expiredCount > 0) {
+            \Illuminate\Support\Facades\Cache::forget('equiply_category_counts');
+        }
+
+        return $expiredCount;
     }
 }

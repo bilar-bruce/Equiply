@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ItemResource;
 use App\Models\Item;
+use App\Models\Rental;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -17,6 +18,8 @@ class ItemController extends Controller
      */
     public function index(Request $request): AnonymousResourceCollection
     {
+        Rental::expireUnclaimedReservations();
+
         $query = Item::query()->with('owner');
 
         // Filter by category
@@ -71,6 +74,8 @@ class ItemController extends Controller
      */
     public function show(string $id): ItemResource
     {
+        Rental::expireUnclaimedReservations();
+
         $item = Item::with('owner')
             ->where('_id', $id)
             ->orWhere('item_code', $id)
@@ -85,6 +90,8 @@ class ItemController extends Controller
      */
     public function categories(): JsonResponse
     {
+        Rental::expireUnclaimedReservations();
+
         $data = Cache::remember('equiply_category_counts', 15, function () {
             $categories = [
                 'Laboratory Attire',
