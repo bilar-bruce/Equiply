@@ -86,6 +86,10 @@ export const itemsApi = {
         const res = await api.post('/items', data);
         return res.data;
     },
+    resolveMaintenance: async (id, data = {}) => {
+        const res = await api.post(`/custodian/items/${id}/resolve-maintenance`, data);
+        return res.data;
+    },
 };
 
 export const reservationsApi = {

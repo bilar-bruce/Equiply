@@ -304,18 +304,33 @@ export default function CustodianHistoryView({ refreshKey }) {
                                         <span className="font-semibold text-ustp-navy dark:text-ustp-gold font-mono block truncate">
                                             {rental.financials?.collateral_held || 'Academic Clearance Hold'}
                                         </span>
+                                        {rental.financials?.collateral_status === 'withheld_damage' && (
+                                            <span className="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                                                Collateral Deducted
+                                            </span>
+                                        )}
+                                        {rental.financials?.collateral_status === 'clearance_hold_flagged' && (
+                                            <span className="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
+                                                Clearance Hold Flagged
+                                            </span>
+                                        )}
                                         <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-bold block">
                                             Fee: {formatPHP(rental.financials?.total_fee ?? 30)}
                                         </span>
                                         {hasOverdue && (
-                                            <>
-                                                <span className="text-[11px] font-mono text-rose-600 dark:text-rose-400 font-bold block">
-                                                    Overdue: +{formatPHP(rental.financials.overdue_fee)}
-                                                </span>
-                                                <span className="text-[11px] font-mono text-slate-900 dark:text-white font-bold block">
-                                                    Total: {formatPHP(rental.financials.final_total ?? ((rental.financials.total_fee ?? 30) + (rental.financials.overdue_fee ?? 0)))}
-                                                </span>
-                                            </>
+                                            <span className="text-[11px] font-mono text-rose-600 dark:text-rose-400 font-bold block">
+                                                Overdue: +{formatPHP(rental.financials.overdue_fee)}
+                                            </span>
+                                        )}
+                                        {(rental.financials?.damage_fee ?? 0) > 0 && (
+                                            <span className="text-[11px] font-mono text-amber-600 dark:text-amber-400 font-bold block">
+                                                Damage: +{formatPHP(rental.financials.damage_fee)}
+                                            </span>
+                                        )}
+                                        {(hasOverdue || (rental.financials?.damage_fee ?? 0) > 0) && (
+                                            <span className="text-[11px] font-mono text-slate-900 dark:text-white font-bold block">
+                                                Total: {formatPHP(rental.financials.final_total ?? ((rental.financials.total_fee ?? 30) + (rental.financials.overdue_fee ?? 0) + (rental.financials.damage_fee ?? 0)))}
+                                            </span>
                                         )}
                                     </div>
                                 </div>

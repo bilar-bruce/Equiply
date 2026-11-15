@@ -26,6 +26,9 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
     const { user, isCustodian } = useAuth();
     const [rentals, setRentals] = useState([]);
     const [p2pIntakeItems, setP2pIntakeItems] = useState([]);
+    const [maintenanceItems, setMaintenanceItems] = useState([]);
+    const [resolveModalItem, setResolveModalItem] = useState(null);
+    const [repairNotes, setRepairNotes] = useState('Repaired, tested, and verified ready for campus circulation');
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState('all');
     const [searchCode, setSearchCode] = useState('');
@@ -36,6 +39,8 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
     const [checkinModalRental, setCheckinModalRental] = useState(null);
     const [conditionIn, setConditionIn] = useState('Returned in good condition, complete');
     const [markMaintenance, setMarkMaintenance] = useState(false);
+    const [collateralStatus, setCollateralStatus] = useState('released');
+    const [damageFee, setDamageFee] = useState('0');
     const [checkinNotes, setCheckinNotes] = useState('');
 
     const fetchRentals = async () => {
@@ -44,6 +49,9 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
             if (statusFilter === 'p2p-intake') {
                 const res = await itemsApi.list({ owner_type: 'student', availability_stat: 'pending_intake' });
                 setP2pIntakeItems(res.data || []);
+            } else if (statusFilter === 'maintenance') {
+                const res = await itemsApi.list({ availability_stat: 'maintenance' });
+                setMaintenanceItems(res.data || []);
             } else {
                 const params = {};
                 if (statusFilter !== 'all') params.status = statusFilter;
@@ -104,6 +112,8 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
             await reservationsApi.checkin(checkinModalRental.id || checkinModalRental._id, {
                 condition_in: conditionIn,
                 mark_maintenance: markMaintenance,
+                collateral_status: collateralStatus,
+                damage_fee: parseFloat(damageFee) || 0,
                 notes: checkinNotes,
             });
 
@@ -112,6 +122,27 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
             if (onRefreshTrigger) onRefreshTrigger();
         } catch (err) {
             alert(err.response?.data?.message || 'Return check-in failed.');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    // Resolve Maintenance & Restore to Catalog
+    const handleResolveMaintenanceSubmit = async (e) => {
+        e.preventDefault();
+        if (!resolveModalItem) return;
+        setActionLoading(true);
+
+        try {
+            await itemsApi.resolveMaintenance(resolveModalItem.id || resolveModalItem._id, {
+                repair_notes: repairNotes,
+            });
+
+            setResolveModalItem(null);
+            await fetchRentals();
+            if (onRefreshTrigger) onRefreshTrigger();
+        } catch (err) {
+            alert(err.response?.data?.message || 'Maintenance resolution failed.');
         } finally {
             setActionLoading(false);
         }
@@ -210,6 +241,7 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
                         { id: 'active', label: 'Active Loans' },
                         { id: 'returned', label: 'Returned' },
                         { id: 'p2p-intake', label: 'P2P Intake Queue' },
+                        { id: 'maintenance', label: 'Maintenance & Repair' },
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -226,9 +258,69 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
                 </div>
             </div>
 
-            {/* Records or P2P Intake List */}
+            {/* Records or P2P Intake or Maintenance List */}
             {loading ? (
                 <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400">Loading records...</div>
+            ) : statusFilter === 'maintenance' ? (
+                maintenanceItems.length === 0 ? (
+                    <div className="p-12 text-center rounded-2xl flat-panel">
+                        <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2 opacity-60" />
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white">No equipment currently in maintenance</h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">All facility and peer items are in active circulation.</p>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {maintenanceItems.map((item) => (
+                            <div
+                                key={item.id || item._id}
+                                className="p-5 rounded-2xl flat-card flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                            >
+                                <div className="space-y-2 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="font-mono text-xs font-bold text-ustp-navy dark:text-white bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                                            {item.item_code}
+                                        </span>
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                                            <Wrench className="w-3 h-3" />
+                                            Under Maintenance
+                                        </span>
+                                        <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                                            {item.category}
+                                        </span>
+                                    </div>
+
+                                    <div className="text-sm font-bold text-slate-900 dark:text-white font-['Outfit']">
+                                        {item.name}
+                                    </div>
+
+                                    <div className="text-xs text-slate-600 dark:text-slate-300">
+                                        <span>Owner: </span>
+                                        <span className="font-semibold text-ustp-navy dark:text-ustp-gold">
+                                            {item.owner_type === 'student' ? (item.owner?.name || 'Student Lender') : 'USTP Facility'}
+                                        </span>
+                                        <span className="ml-3 font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                                            Rate: {formatPHP(item.rental_rate_flat ?? item.rental_rate_hr ?? 30)} flat
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="self-end lg:self-center">
+                                    <button
+                                        disabled={actionLoading}
+                                        onClick={() => {
+                                            setResolveModalItem(item);
+                                            setRepairNotes('Repaired, tested, and verified ready for campus circulation');
+                                        }}
+                                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors"
+                                    >
+                                        <Wrench className="w-3.5 h-3.5" />
+                                        <span>Mark Repaired & Restore to Catalog</span>
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )
             ) : statusFilter === 'p2p-intake' ? (
                 p2pIntakeItems.length === 0 ? (
                     <div className="p-12 text-center rounded-2xl flat-panel">
@@ -375,12 +467,32 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
                                             <span className="font-semibold text-ustp-navy dark:text-ustp-gold font-mono block">
                                                 {rental.financials?.collateral_held || 'Academic Clearance Hold'}
                                             </span>
+                                            {rental.financials?.collateral_status === 'withheld_damage' && (
+                                                <span className="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                                                    Collateral Deducted
+                                                </span>
+                                            )}
+                                            {rental.financials?.collateral_status === 'clearance_hold_flagged' && (
+                                                <span className="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
+                                                    Clearance Hold Flagged
+                                                </span>
+                                            )}
                                             <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold block">
                                                 Base Fee: {formatPHP(rental.financials?.total_fee ?? 30)}
                                             </span>
                                             {(rental.financials?.overdue_fee ?? 0) > 0 && (
                                                 <span className="text-[11px] font-mono text-rose-600 dark:text-rose-400 font-bold block">
-                                                    +{formatPHP(rental.financials.overdue_fee)} • Final Total: {formatPHP(rental.financials.final_total ?? ((rental.financials?.total_fee ?? 30) + rental.financials.overdue_fee))}
+                                                    Overdue: +{formatPHP(rental.financials.overdue_fee)}
+                                                </span>
+                                            )}
+                                            {(rental.financials?.damage_fee ?? 0) > 0 && (
+                                                <span className="text-[11px] font-mono text-amber-600 dark:text-amber-400 font-bold block">
+                                                    Damage Fee: +{formatPHP(rental.financials.damage_fee)}
+                                                </span>
+                                            )}
+                                            {((rental.financials?.overdue_fee ?? 0) > 0 || (rental.financials?.damage_fee ?? 0) > 0) && (
+                                                <span className="text-[11px] font-mono text-slate-900 dark:text-white font-bold block">
+                                                    Final Total: {formatPHP(rental.financials.final_total ?? ((rental.financials?.total_fee ?? 30) + (rental.financials?.overdue_fee ?? 0) + (rental.financials?.damage_fee ?? 0)))}
                                                 </span>
                                             )}
                                         </div>
@@ -418,6 +530,9 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
                                                 setCheckinModalRental(rental);
                                                 setConditionIn('Returned in good condition, complete');
                                                 setMarkMaintenance(false);
+                                                setCollateralStatus('released');
+                                                setDamageFee('0');
+                                                setCheckinNotes('');
                                             }}
                                             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors"
                                         >
@@ -455,10 +570,11 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
                       )
                     : 0;
                 const overdueFee = overdueHours * 15;
+                const parsedDamageFee = Number(damageFee) || 0;
 
                 return (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-                    <div className="w-full max-w-md rounded-2xl bg-white dark:bg-[#151136] border border-slate-200 dark:border-slate-800 shadow-2xl p-6">
+                    <div className="w-full max-w-md rounded-2xl bg-white dark:bg-[#151136] border border-slate-200 dark:border-slate-800 shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-start mb-4">
                             <div>
                                 <div className="flex items-center gap-2">
@@ -498,23 +614,31 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
                                 </span>
                             </div>
 
-                            {isModalOverdue && (
+                            {(isModalOverdue || parsedDamageFee > 0) && (
                                 <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60 text-xs space-y-1.5">
                                     <div className="flex items-center gap-1.5 font-bold text-rose-700 dark:text-rose-300">
                                         <AlertTriangle className="w-3.5 h-3.5" />
-                                        <span>Overdue Penalty Settlement</span>
+                                        <span>Overdue & Damage Settlement</span>
                                     </div>
                                     <div className="flex justify-between text-slate-600 dark:text-slate-300">
                                         <span>Base Rental Fee:</span>
                                         <span className="font-mono font-semibold">{formatPHP(baseFee)}</span>
                                     </div>
-                                    <div className="flex justify-between text-rose-700 dark:text-rose-300">
-                                        <span>Overdue Surcharge ({overdueHours} hr × {formatPHP(15)}/hr):</span>
-                                        <span className="font-mono font-bold">+{formatPHP(overdueFee)}</span>
-                                    </div>
+                                    {isModalOverdue && (
+                                        <div className="flex justify-between text-rose-700 dark:text-rose-300">
+                                            <span>Overdue Surcharge ({overdueHours} hr × {formatPHP(15)}/hr):</span>
+                                            <span className="font-mono font-bold">+{formatPHP(overdueFee)}</span>
+                                        </div>
+                                    )}
+                                    {parsedDamageFee > 0 && (
+                                        <div className="flex justify-between text-amber-700 dark:text-amber-300">
+                                            <span>Damage / Repair Fee:</span>
+                                            <span className="font-mono font-bold">+{formatPHP(parsedDamageFee)}</span>
+                                        </div>
+                                    )}
                                     <div className="flex justify-between pt-1.5 border-t border-rose-200 dark:border-rose-800/60 font-bold text-slate-900 dark:text-white">
                                         <span>Final Total Due:</span>
-                                        <span className="font-mono text-rose-700 dark:text-rose-300">{formatPHP(baseFee + overdueFee)}</span>
+                                        <span className="font-mono text-rose-700 dark:text-rose-300">{formatPHP(baseFee + overdueFee + parsedDamageFee)}</span>
                                     </div>
                                 </div>
                             )}
@@ -538,13 +662,48 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
                                     type="checkbox"
                                     id="markMaint"
                                     checked={markMaintenance}
-                                    onChange={(e) => setMarkMaintenance(e.target.checked)}
+                                    onChange={(e) => {
+                                        const checked = e.target.checked;
+                                        setMarkMaintenance(checked);
+                                        if (checked && collateralStatus === 'released') {
+                                            setCollateralStatus('withheld_damage');
+                                        }
+                                    }}
                                     className="w-4 h-4 rounded text-ustp-navy focus:ring-0 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700"
                                 />
                                 <label htmlFor="markMaint" className="text-xs text-slate-700 dark:text-slate-300 cursor-pointer flex items-center gap-1.5">
                                     <Wrench className="w-3.5 h-3.5 text-amber-500" />
                                     Flag for Maintenance / Service (Damages found)
                                 </label>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                    Collateral Disposition
+                                </label>
+                                <select
+                                    value={collateralStatus}
+                                    onChange={(e) => setCollateralStatus(e.target.value)}
+                                    className="w-full px-3 py-2 rounded-xl text-xs flat-input"
+                                >
+                                    <option value="released">Release Collateral in Full (No Deductions)</option>
+                                    <option value="withheld_damage">Flag Damage / Deduct from Deposit</option>
+                                    <option value="clearance_hold_flagged">Flag Academic Clearance Hold</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                    Damage / Repair Fee (₱)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="1.00"
+                                    value={damageFee}
+                                    onChange={(e) => setDamageFee(e.target.value)}
+                                    className="w-full px-3 py-2 rounded-xl text-xs flat-input font-mono"
+                                />
                             </div>
 
                             <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
@@ -569,6 +728,78 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
                 </div>
                 );
             })()}
+
+            {/* Resolve Maintenance Modal */}
+            {resolveModalItem && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+                    <div className="w-full max-w-md rounded-2xl bg-white dark:bg-[#151136] border border-slate-200 dark:border-slate-800 shadow-2xl p-6">
+                        <div className="flex justify-between items-start mb-4">
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                                        {resolveModalItem.item_code}
+                                    </span>
+                                </div>
+                                <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1">
+                                    Resolve Maintenance & Restore to Catalog
+                                </h3>
+                            </div>
+                            <button
+                                onClick={() => setResolveModalItem(null)}
+                                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleResolveMaintenanceSubmit} className="space-y-4">
+                            <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl text-xs border border-slate-200 dark:border-slate-800">
+                                <span className="text-slate-500 dark:text-slate-400 text-[10px] block">Equipment Item</span>
+                                <span className="font-semibold text-slate-900 dark:text-white">
+                                    {resolveModalItem.name}
+                                </span>
+                                <span className="text-slate-500 dark:text-slate-400 text-[10px] block mt-2">
+                                    Rental Rate:
+                                </span>
+                                <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                                    {formatPHP(resolveModalItem.rental_rate_flat ?? resolveModalItem.rental_rate_hr ?? 30)} flat
+                                </span>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                    Repair & Verification Notes
+                                </label>
+                                <textarea
+                                    rows={3}
+                                    value={repairNotes}
+                                    onChange={(e) => setRepairNotes(e.target.value)}
+                                    placeholder="Describe repair work and functional verification..."
+                                    className="w-full px-3 py-2 rounded-xl text-xs flat-input"
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                                <button
+                                    type="button"
+                                    onClick={() => setResolveModalItem(null)}
+                                    className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={actionLoading}
+                                    className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors"
+                                >
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    {actionLoading ? 'Restoring...' : 'Confirm Repaired & Restore'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
             {/* In-Person Student Enrollment Modal */}
             <EnrollStudentModal
                 isOpen={enrollModalOpen}
