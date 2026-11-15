@@ -288,6 +288,12 @@ class ReservationController extends Controller
             $item = Item::where('_id', $rental->item_id)->first();
             if ($item) {
                 $item->availability_stat = $markMaintenance ? 'maintenance' : 'available';
+                if ($markMaintenance) {
+                    $specs = $item->specs ?? [];
+                    $specs['last_damage_note'] = $validated['condition_in'];
+                    $specs['last_damage_at'] = now()->toIso8601String();
+                    $item->specs = $specs;
+                }
                 $item->save();
             }
 

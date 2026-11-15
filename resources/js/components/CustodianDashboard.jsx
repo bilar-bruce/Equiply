@@ -317,6 +317,16 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
                                             Rate: {formatPHP(item.rental_rate_flat ?? item.rental_rate_hr ?? 30)} flat
                                         </span>
                                     </div>
+                                    {item.specs?.last_damage_note && (
+                                        <div className="text-[11px] text-rose-700 dark:text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-lg px-2.5 py-1.5 mt-1">
+                                            <span className="font-semibold">Reported Issue:</span> {item.specs.last_damage_note}
+                                        </div>
+                                    )}
+                                    {item.specs?.last_repair_notes && (
+                                        <div className="text-[11px] text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 mt-1">
+                                            <span className="font-semibold">Previous Repair:</span> {item.specs.last_repair_notes}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="self-end lg:self-center">
@@ -381,6 +391,16 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
                                             Rate: {formatPHP(item.rental_rate_flat ?? item.rental_rate_hr ?? 30)} flat
                                         </span>
                                     </div>
+                                    {item.specs?.last_damage_note && (
+                                        <div className="text-[11px] text-rose-700 dark:text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-lg px-2.5 py-1.5 mt-1">
+                                            <span className="font-semibold">Reported Issue:</span> {item.specs.last_damage_note}
+                                        </div>
+                                    )}
+                                    {item.specs?.last_repair_notes && (
+                                        <div className="text-[11px] text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 mt-1">
+                                            <span className="font-semibold">Previous Repair:</span> {item.specs.last_repair_notes}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="self-end lg:self-center">
