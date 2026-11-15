@@ -259,6 +259,8 @@ class ReservationController extends Controller
         $validated = $request->validate([
             'condition_in' => 'required|string|max:500',
             'mark_maintenance' => 'nullable|boolean',
+            'collateral_status' => 'nullable|string|in:released,withheld_damage,clearance_hold_flagged',
+            'damage_fee' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
         ]);
 
@@ -271,6 +273,9 @@ class ReservationController extends Controller
             }
 
             $markMaintenance = (bool) ($validated['mark_maintenance'] ?? false);
+            $damageFee = round((float) ($validated['damage_fee'] ?? 0.00), 2);
+            $collateralStatus = $validated['collateral_status']
+                ?? (($damageFee > 0 || $markMaintenance) ? 'withheld_damage' : 'released');
 
             // Restore item state
             $item = Item::where('_id', $rental->item_id)->first();
@@ -305,7 +310,9 @@ class ReservationController extends Controller
             $financials['overdue_rate_per_hour'] = Rental::OVERDUE_RATE_PER_HOUR;
             $financials['overdue_fee'] = $overdueFee;
             $financials['is_overdue'] = $isOverdue;
-            $financials['final_total'] = round($baseFee + $overdueFee, 2);
+            $financials['damage_fee'] = $damageFee;
+            $financials['collateral_status'] = $collateralStatus;
+            $financials['final_total'] = round($baseFee + $overdueFee + $damageFee, 2);
 
             $conditionLogs = $rental->condition_logs ?? [];
             $conditionLogs['condition_in'] = $validated['condition_in'];

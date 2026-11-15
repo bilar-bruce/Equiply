@@ -72,4 +72,5 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Custodian P2P Verification & Intake Endpoint
     Route::post('/custodian/items/{id}/verify-intake', [PeerLenderController::class, 'verifyIntake']);
+    Route::post('/custodian/items/{id}/resolve-maintenance', [ItemController::class, 'resolveMaintenance']);
 });

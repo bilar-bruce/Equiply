@@ -50,8 +50,16 @@
                 <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b;">
                     Collateral &amp; Clearance Release Status
                 </div>
-                <div style="font-size: 14px; font-weight: 600; color: #1B1642; margin-top: 2px;">
-                    Cleared • {{ $rental->financials['collateral_held'] ?? 'Academic Clearance Hold' }}
+                @php
+                    $collateralStatus = $rental->financials['collateral_status'] ?? 'released';
+                    $collateralLabel = match ($collateralStatus) {
+                        'withheld_damage' => 'Withheld / Deducted for Damage',
+                        'clearance_hold_flagged' => 'Academic Clearance Hold Flagged',
+                        default => 'Cleared',
+                    };
+                @endphp
+                <div style="font-size: 14px; font-weight: 600; color: {{ $collateralStatus === 'released' ? '#1B1642' : '#b91c1c' }}; margin-top: 2px;">
+                    {{ $collateralLabel }} • {{ $rental->financials['collateral_held'] ?? 'Academic Clearance Hold' }}
                 </div>
             </td>
         </tr>
@@ -66,6 +74,11 @@
                 @if(($rental->financials['overdue_fee'] ?? 0) > 0)
                     <div style="font-size: 13px; color: #b91c1c; margin-top: 2px;">
                         Overdue Surcharge: ₱{{ number_format((float) ($rental->financials['overdue_fee'] ?? 0), 2) }}
+                    </div>
+                @endif
+                @if(($rental->financials['damage_fee'] ?? 0) > 0)
+                    <div style="font-size: 13px; color: #b91c1c; margin-top: 2px;">
+                        Damage / Repair Fee: ₱{{ number_format((float) ($rental->financials['damage_fee'] ?? 0), 2) }}
                     </div>
                 @endif
                 <div style="font-size: 16px; font-weight: 800; color: #1B1642; margin-top: 6px;">

@@ -182,4 +182,45 @@ class ItemController extends Controller
             ->response()
             ->setStatusCode(201);
     }
+
+    /**
+     * Resolve equipment maintenance and restore item to active catalog.
+     */
+    public function resolveMaintenance(Request $request, string $id): JsonResponse
+    {
+        $user = $request->user();
+        if ($user->role !== 'custodian') {
+            return response()->json([
+                'message' => 'Access restricted: Only facility custodians can resolve item maintenance.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'repair_notes' => 'nullable|string|max:500',
+        ]);
+
+        $item = Item::where('_id', $id)->orWhere('item_code', $id)->firstOrFail();
+
+        if ($item->availability_stat !== 'maintenance') {
+            return response()->json([
+                'message' => "Item [{$item->item_code}] is currently '{$item->availability_stat}', not in maintenance.",
+            ], 422);
+        }
+
+        $specs = $item->specs ?? [];
+        $specs['last_repair_notes'] = $validated['repair_notes'] ?? 'Repaired and inspected at Facility Desk';
+        $specs['last_repaired_at'] = now()->toIso8601String();
+        $specs['last_repaired_by'] = $user->name;
+
+        $item->availability_stat = 'available';
+        $item->specs = $specs;
+        $item->save();
+
+        Cache::forget('equiply_category_counts');
+
+        return response()->json([
+            'message' => "Equipment [{$item->item_code}] maintenance resolved and restored to active catalog.",
+            'item' => new ItemResource($item),
+        ]);
+    }
 }
