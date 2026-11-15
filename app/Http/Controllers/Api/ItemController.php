@@ -146,6 +146,7 @@ class ItemController extends Controller
             'name' => 'required|string|max:255',
             'category' => 'required|string',
             'owner_type' => 'required|in:facility,student',
+            'rental_rate_flat' => 'nullable|numeric|min:0',
             'rental_rate_hr' => 'nullable|numeric|min:0',
             'deposit_required' => 'nullable|boolean',
             'availability_stat' => 'nullable|in:available,reserved,rented,maintenance,lost',
@@ -163,13 +164,16 @@ class ItemController extends Controller
             $validated['owner_user_id'] = null;
         }
 
+        $rate = round((float) ($validated['rental_rate_flat'] ?? $validated['rental_rate_hr'] ?? 0.0), 2);
+
         $item = Item::create([
             'item_code' => $validated['item_code'],
             'name' => $validated['name'],
             'category' => $validated['category'],
             'owner_type' => $validated['owner_type'],
             'owner_user_id' => $validated['owner_user_id'],
-            'rental_rate_hr' => (float) ($validated['rental_rate_hr'] ?? 0.0),
+            'rental_rate_flat' => $rate,
+            'rental_rate_hr' => $rate,
             'deposit_required' => (bool) ($validated['deposit_required'] ?? false),
             'availability_stat' => $validated['availability_stat'] ?? 'available',
             'tags' => $validated['tags'] ?? [],

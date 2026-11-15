@@ -47,11 +47,23 @@ class PeerLenderController extends Controller
                 return (float) ($r->financials['total_fee'] ?? 0.0);
             });
 
+        $returnedRentals = $rentals->where('status', 'returned');
+
+        $unclaimedEarnings = $returnedRentals
+            ->filter(fn ($r) => ($r->financials['payout_status'] ?? 'unclaimed') !== 'settled')
+            ->sum(fn ($r) => (float) ($r->financials['total_fee'] ?? 0.0));
+
+        $settledEarnings = $returnedRentals
+            ->filter(fn ($r) => ($r->financials['payout_status'] ?? 'unclaimed') === 'settled')
+            ->sum(fn ($r) => (float) ($r->financials['total_fee'] ?? 0.0));
+
         $metrics = [
             'total_listed' => $items->count(),
             'active_loans' => $activeLoans,
             'completed_loans' => $completedLoans,
             'total_earnings' => round($totalEarnings, 2),
+            'unclaimed_earnings' => round($unclaimedEarnings, 2),
+            'settled_earnings' => round($settledEarnings, 2),
             'pending_intake' => $items->where('availability_stat', 'pending_intake')->count(),
         ];
 
@@ -77,6 +89,7 @@ class PeerLenderController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'category' => 'required|string|in:Laboratory Attire,Computation,Electronics,General',
+            'rental_rate_flat' => 'nullable|numeric|min:0',
             'rental_rate_hr' => 'nullable|numeric|min:0',
             'deposit_required' => 'nullable|boolean',
             'specs' => 'nullable|array',
@@ -88,6 +101,8 @@ class PeerLenderController extends Controller
             $code = 'EQ-P2P-' . strtoupper(Str::random(4));
         } while (Item::where('item_code', $code)->exists());
 
+        $rate = round((float) ($validated['rental_rate_flat'] ?? $validated['rental_rate_hr'] ?? 0.0), 2);
+
         // Status initialized to 'pending_intake' until student physically brings gear to facility desk
         $item = Item::create([
             'item_code' => $code,
@@ -95,7 +110,8 @@ class PeerLenderController extends Controller
             'category' => $validated['category'],
             'owner_type' => 'student',
             'owner_user_id' => $user->_id,
-            'rental_rate_hr' => (float) ($validated['rental_rate_hr'] ?? 0.0),
+            'rental_rate_flat' => $rate,
+            'rental_rate_hr' => $rate,
             'deposit_required' => (bool) ($validated['deposit_required'] ?? false),
             'availability_stat' => 'pending_intake',
             'tags' => $validated['tags'] ?? ['p2p', 'student-owned'],
@@ -130,14 +146,17 @@ class PeerLenderController extends Controller
         }
 
         $validated = $request->validate([
+            'rental_rate_flat' => 'nullable|numeric|min:0',
             'rental_rate_hr' => 'nullable|numeric|min:0',
             'deposit_required' => 'nullable|boolean',
             'specs' => 'nullable|array',
             'tags' => 'nullable|array',
         ]);
 
-        if (array_key_exists('rental_rate_hr', $validated)) {
-            $item->rental_rate_hr = (float) $validated['rental_rate_hr'];
+        if (array_key_exists('rental_rate_flat', $validated) || array_key_exists('rental_rate_hr', $validated)) {
+            $rate = round((float) ($validated['rental_rate_flat'] ?? $validated['rental_rate_hr'] ?? 0.0), 2);
+            $item->rental_rate_flat = $rate;
+            $item->rental_rate_hr = $rate;
         }
         if (array_key_exists('deposit_required', $validated)) {
             $item->deposit_required = (bool) $validated['deposit_required'];
@@ -230,6 +249,56 @@ class PeerLenderController extends Controller
         return response()->json([
             'message' => "Equipment [{$item->item_code}] verified and active in campus catalog.",
             'item' => new ItemResource($item),
+        ]);
+    }
+
+    /**
+     * Custodian payout settlement: Mark a completed student-owned P2P rental's earnings as settled.
+     */
+    public function settlePayout(Request $request, string $id): JsonResponse
+    {
+        $custodian = $request->user();
+        if ($custodian->role !== 'custodian') {
+            return response()->json([
+                'message' => 'Access restricted: Only facility custodians can disburse peer lender payouts.',
+            ], 403);
+        }
+
+        $rental = Rental::with(['item', 'borrower', 'custodian'])
+            ->where('_id', $id)
+            ->orWhere('rental_code', $id)
+            ->firstOrFail();
+
+        $ownerType = $rental->item?->owner_type ?? ($rental->item_snapshot['owner_type'] ?? null);
+        if ($ownerType !== 'student') {
+            return response()->json([
+                'message' => 'Payout settlement is only applicable to student-owned peer-to-peer rentals.',
+            ], 422);
+        }
+
+        if ($rental->status !== 'returned') {
+            return response()->json([
+                'message' => "Cannot settle payout for rental with status '{$rental->status}'. Rental must be returned first.",
+            ], 422);
+        }
+
+        $financials = $rental->financials ?? [];
+        if (($financials['payout_status'] ?? 'unclaimed') === 'settled') {
+            return response()->json([
+                'message' => 'Payout for this rental has already been settled.',
+            ], 422);
+        }
+
+        $financials['payout_status'] = 'settled';
+        $financials['payout_settled_at'] = now()->toIso8601String();
+        $financials['payout_settled_by'] = (string) $custodian->_id;
+
+        $rental->financials = $financials;
+        $rental->save();
+
+        return response()->json([
+            'message' => "Peer lender payout settled for rental [{$rental->rental_code}].",
+            'rental' => new \App\Http\Resources\RentalResource($rental),
         ]);
     }
 }

@@ -149,6 +149,16 @@ class ReservationController extends Controller
             $flatRate = (float) ($item->rental_rate_flat ?? $item->rental_rate_hr ?? 30.00);
             $totalFee = round($flatRate, 2);
 
+            $financials = [
+                'total_fee' => $totalFee,
+                'collateral_held' => $validated['collateral_held'],
+            ];
+
+            if ($item->owner_type === 'student') {
+                $financials['payout_status'] = 'unclaimed';
+                $financials['payout_settled_at'] = null;
+            }
+
             // Create immutable embedded document structure
             $rental = Rental::create([
                 'rental_code' => $rentalCode,
@@ -171,10 +181,7 @@ class ReservationController extends Controller
                     'condition_out' => $validated['condition_out'] ?? 'Good condition upon release',
                     'condition_in' => null,
                 ],
-                'financials' => [
-                    'total_fee' => $totalFee,
-                    'collateral_held' => $validated['collateral_held'],
-                ],
+                'financials' => $financials,
             ]);
 
             return $rental;
@@ -313,6 +320,11 @@ class ReservationController extends Controller
             $financials['damage_fee'] = $damageFee;
             $financials['collateral_status'] = $collateralStatus;
             $financials['final_total'] = round($baseFee + $overdueFee + $damageFee, 2);
+
+            if (($item?->owner_type ?? $rental->item_snapshot['owner_type'] ?? null) === 'student') {
+                $financials['payout_status'] = $financials['payout_status'] ?? 'unclaimed';
+                $financials['payout_settled_at'] = $financials['payout_settled_at'] ?? null;
+            }
 
             $conditionLogs = $rental->condition_logs ?? [];
             $conditionLogs['condition_in'] = $validated['condition_in'];
