@@ -87,6 +87,21 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
         }
     };
 
+    // Settle P2P Payout at Desk
+    const handleSettlePayout = async (rentalId) => {
+        if (!confirm('Confirm physical cash disbursement of P2P rental earnings to the student lender at the Facility Desk?')) return;
+        setActionLoading(true);
+        try {
+            await peerLenderApi.settlePayout(rentalId);
+            await fetchRentals();
+            if (onRefreshTrigger) onRefreshTrigger();
+        } catch (err) {
+            alert(err.response?.data?.message || 'Payout settlement failed.');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     // Authorize & Handover (Checkout)
     const handleCheckout = async (rentalId) => {
         if (!confirm('Confirm physical handover and dispatch of this equipment to the borrower?')) return;
@@ -394,6 +409,8 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
                         const isPending = rental.status === 'pending' || rental.status === 'reserved';
                         const isActive = rental.status === 'active';
                         const isReturned = rental.status === 'returned';
+                        const isPeerItem = (rental.item_snapshot?.owner_type || rental.item?.owner_type) === 'student';
+                        const payoutStatus = rental.financials?.payout_status || 'unclaimed';
                         const isCurrentlyOverdue =
                             isActive &&
                             rental.schedule?.due_time &&
@@ -495,6 +512,17 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
                                                     Final Total: {formatPHP(rental.financials.final_total ?? ((rental.financials?.total_fee ?? 30) + (rental.financials?.overdue_fee ?? 0) + (rental.financials?.damage_fee ?? 0)))}
                                                 </span>
                                             )}
+                                            {isPeerItem && isReturned && (
+                                                payoutStatus === 'settled' ? (
+                                                    <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20">
+                                                        Settled Payouts (₱): {formatPHP(rental.financials?.total_fee ?? 0)}
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                                                        Unclaimed Balance (₱): {formatPHP(rental.financials?.total_fee ?? 0)}
+                                                    </span>
+                                                )
+                                            )}
                                         </div>
                                     </div>
 
@@ -542,10 +570,21 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
                                     )}
 
                                     {isReturned && (
-                                        <span className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
-                                            <CheckCircle2 className="w-3.5 h-3.5" />
-                                            Closed & Restocked
-                                        </span>
+                                        <>
+                                            {isPeerItem && payoutStatus !== 'settled' && (
+                                                <button
+                                                    disabled={actionLoading}
+                                                    onClick={() => handleSettlePayout(rental.id || rental._id)}
+                                                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-xs transition-colors"
+                                                >
+                                                    <span>Disburse P2P Payout ({formatPHP(rental.financials?.total_fee ?? 0)})</span>
+                                                </button>
+                                            )}
+                                            <span className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                                Closed & Restocked
+                                            </span>
+                                        </>
                                     )}
                                 </div>
                             </div>

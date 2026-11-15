@@ -159,6 +159,10 @@ export const peerLenderApi = {
         const res = await api.post(`/custodian/items/${id}/verify-intake`);
         return res.data;
     },
+    settlePayout: async (id) => {
+        const res = await api.post(`/custodian/rentals/${id}/settle-payout`);
+        return res.data;
+    },
 };
 
 export default api;

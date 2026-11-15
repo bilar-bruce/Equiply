@@ -332,6 +332,17 @@ export default function CustodianHistoryView({ refreshKey }) {
                                                 Total: {formatPHP(rental.financials.final_total ?? ((rental.financials.total_fee ?? 30) + (rental.financials.overdue_fee ?? 0) + (rental.financials.damage_fee ?? 0)))}
                                             </span>
                                         )}
+                                        {(rental.item_snapshot?.owner_type || rental.item?.owner_type) === 'student' && isReturned && (
+                                            rental.financials?.payout_status === 'settled' ? (
+                                                <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20">
+                                                    P2P Payout Settled ({formatPHP(rental.financials?.total_fee ?? 0)})
+                                                </span>
+                                            ) : (
+                                                <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                                                    P2P Payout Unclaimed ({formatPHP(rental.financials?.total_fee ?? 0)})
+                                                </span>
+                                            )
+                                        )}
                                     </div>
                                 </div>
 

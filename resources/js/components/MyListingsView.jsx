@@ -32,6 +32,8 @@ export default function MyListingsView() {
         active_loans: 0,
         completed_loans: 0,
         total_earnings: 0.0,
+        unclaimed_earnings: 0.0,
+        settled_earnings: 0.0,
         pending_intake: 0,
     });
     const [loading, setLoading] = useState(true);
@@ -83,10 +85,12 @@ export default function MyListingsView() {
         setSubmitting(true);
 
         try {
+            const parsedRate = parseFloat(rentalRate) || 0.0;
             const payload = {
                 name: itemName.trim(),
                 category,
-                rental_rate_hr: parseFloat(rentalRate) || 0.0,
+                rental_rate_flat: parsedRate,
+                rental_rate_hr: parsedRate,
                 deposit_required: depositRequired,
                 specs: specNotes.trim() ? { notes: specNotes.trim() } : {},
                 tags: ['p2p', 'student-owned', category.toLowerCase()],
@@ -136,8 +140,10 @@ export default function MyListingsView() {
 
         const itemId = editItem.id || editItem._id;
         try {
+            const parsedRate = parseFloat(editRate) || 0.0;
             await peerLenderApi.updateListing(itemId, {
-                rental_rate_hr: parseFloat(editRate) || 0.0,
+                rental_rate_flat: parsedRate,
+                rental_rate_hr: parsedRate,
             });
             showToast(`Rental rate updated for [${editItem.item_code}].`);
             setEditItem(null);
@@ -212,7 +218,7 @@ export default function MyListingsView() {
                 </div>
 
                 {/* Metrics Summary Cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-6">
                     <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
                         <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 block">
                             Total Listed Gear
@@ -233,24 +239,34 @@ export default function MyListingsView() {
                         <span className="text-[10px] text-slate-400 dark:text-slate-500">Currently borrowed</span>
                     </div>
 
+                    <div className="p-3.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60">
+                        <span className="text-[10px] uppercase font-bold text-amber-700 dark:text-amber-400 block">
+                            Unclaimed Balance (₱)
+                        </span>
+                        <div className="text-2xl font-extrabold text-amber-600 dark:text-ustp-gold mt-0.5 font-mono">
+                            {formatPHP(metrics.unclaimed_earnings ?? 0)}
+                        </div>
+                        <span className="text-[10px] text-amber-700/80 dark:text-amber-400/80">Ready to collect at desk</span>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60">
+                        <span className="text-[10px] uppercase font-bold text-indigo-700 dark:text-indigo-400 block">
+                            Settled Payouts (₱)
+                        </span>
+                        <div className="text-2xl font-extrabold text-indigo-600 dark:text-indigo-400 mt-0.5 font-mono">
+                            {formatPHP(metrics.settled_earnings ?? 0)}
+                        </div>
+                        <span className="text-[10px] text-indigo-700/80 dark:text-indigo-400/80">Disbursed at desk</span>
+                    </div>
+
                     <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
                         <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 block">
                             Accrued Earnings
                         </span>
                         <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5 font-mono">
-                            {formatPHP(metrics.total_earnings)}
+                            {formatPHP(metrics.total_earnings ?? 0)}
                         </div>
-                        <span className="text-[10px] text-slate-400 dark:text-slate-500">From peer rentals</span>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 block">
-                            Completed Borrows
-                        </span>
-                        <div className="text-2xl font-extrabold text-indigo-600 dark:text-indigo-400 mt-0.5 font-mono">
-                            {metrics.completed_loans}
-                        </div>
-                        <span className="text-[10px] text-slate-400 dark:text-slate-500">Successful returns</span>
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500">{metrics.completed_loans} completed borrows</span>
                     </div>
                 </div>
             </div>
@@ -397,7 +413,7 @@ export default function MyListingsView() {
                                                             <button
                                                                 onClick={() => {
                                                                     setEditItem(item);
-                                                                    setEditRate(String(item.rental_rate_hr));
+                                                                    setEditRate(String(item.rental_rate_flat ?? item.rental_rate_hr ?? 30));
                                                                 }}
                                                                 className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                                                                 title="Edit rental rate"
