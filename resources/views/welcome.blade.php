@@ -11,8 +11,9 @@
     <script>
         (function() {
             try {
+                var hasToken = !!localStorage.getItem('equiply_token');
                 var theme = localStorage.getItem('equiply_theme') || 'light';
-                if (theme === 'dark') {
+                if (hasToken && theme === 'dark') {
                     document.documentElement.classList.add('dark');
                     var meta = document.querySelector('meta[name="color-scheme"]');
                     if (meta) meta.content = 'dark';

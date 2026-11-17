@@ -65,9 +65,6 @@ export default function ForcePasswordChangeModal({ isOpen = true, onSuccess }) {
                         <KeyRound className="w-5 h-5" />
                     </div>
                     <div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-ustp-gold block">
-                            First-Login Security Gate
-                        </span>
                         <h3 className="text-base font-extrabold text-white font-['Outfit']">
                             Update Temporary Password
                         </h3>

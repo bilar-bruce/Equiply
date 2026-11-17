@@ -157,16 +157,9 @@ function MainLayout({ onNavigateToLogin }) {
                 </main>
 
                 {/* Flat Clean University Footer */}
-                <footer className="border-t border-slate-200 dark:border-slate-800/80 py-5 text-center text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-[#120E2E]/60 mt-auto">
-                    <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                            <Layers className="w-4 h-4 text-ustp-gold" />
-                            <span className="font-bold text-ustp-navy dark:text-slate-200">Equiply • USTP Campus Equipment Portal</span>
-                            <span className="text-slate-400">• Facility Operations</span>
-                        </div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                            © 2026 University of Science and Technology of Southern Philippines (USTP). All rights reserved.
-                        </div>
+                <footer className="border-t border-slate-200 dark:border-slate-800/80 py-4 text-center text-[11px] text-slate-500 dark:text-slate-400 bg-white dark:bg-[#120E2E]/60 mt-auto">
+                    <div className="max-w-7xl mx-auto px-4">
+                        © 2026 University of Science and Technology of Southern Philippines (USTP). All rights reserved.
                     </div>
                 </footer>
             </div>
@@ -290,13 +283,13 @@ class ErrorBoundary extends React.Component {
 export default function MainApp() {
     return (
         <ErrorBoundary>
-            <ThemeProvider>
-                <AuthProvider>
+            <AuthProvider>
+                <ThemeProvider>
                     <FeedbackProvider>
                         <AppContent />
                     </FeedbackProvider>
-                </AuthProvider>
-            </ThemeProvider>
+                </ThemeProvider>
+            </AuthProvider>
         </ErrorBoundary>
     );
 }

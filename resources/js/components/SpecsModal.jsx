@@ -115,7 +115,7 @@ export default function SpecsModal({ item, onClose, onReserve }) {
                         <div className="flex items-center gap-2 mb-2.5">
                             <Cpu className="w-4 h-4 text-ustp-gold" />
                             <h3 className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                                Technical Specifications (Subdocument)
+                                Technical Specifications
                             </h3>
                         </div>
 

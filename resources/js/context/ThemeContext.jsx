@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 
 const ThemeContext = createContext(null);
 
 const STORAGE_KEY = 'equiply_theme';
 
 export function ThemeProvider({ children }) {
+    const { isAuthenticated } = useAuth();
     const [theme, setThemeState] = useState(() => {
         try {
             const saved = localStorage.getItem(STORAGE_KEY);
@@ -18,29 +20,35 @@ export function ThemeProvider({ children }) {
         }
     });
 
+    // Apply dark mode only for authenticated sessions; keep saved preference intact
+    const activeTheme = isAuthenticated ? theme : 'light';
+
     useEffect(() => {
         const root = document.documentElement;
-        if (theme === 'dark') {
+        if (activeTheme === 'dark') {
             root.classList.add('dark');
         } else {
             root.classList.remove('dark');
         }
 
-        try {
-            localStorage.setItem(STORAGE_KEY, theme);
-        } catch (e) {
-            console.warn('Unable to persist theme to localStorage', e);
-        }
-
-        // Reflect color scheme in meta tag per Modern Web Guidance
+        // Reflect active color scheme in meta tag per Modern Web Guidance
         let meta = document.querySelector('meta[name="color-scheme"]');
         if (!meta) {
             meta = document.createElement('meta');
             meta.name = 'color-scheme';
             document.head.appendChild(meta);
         }
-        meta.content = theme;
-    }, [theme]);
+        meta.content = activeTheme;
+    }, [activeTheme]);
+
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        try {
+            localStorage.setItem(STORAGE_KEY, theme);
+        } catch (e) {
+            console.warn('Unable to persist theme to localStorage', e);
+        }
+    }, [theme, isAuthenticated]);
 
     // Cross-tab synchronization
     useEffect(() => {
@@ -66,8 +74,8 @@ export function ThemeProvider({ children }) {
     return (
         <ThemeContext.Provider
             value={{
-                theme,
-                isDark: theme === 'dark',
+                theme: activeTheme,
+                isDark: activeTheme === 'dark',
                 toggleTheme,
                 setTheme,
             }}

@@ -147,148 +147,141 @@ export default function Sidebar({ activeTab, setActiveTab, onNavigateToLogin, on
                 </div>
 
                 {/* Navigation Links */}
-                <div>
-                    <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
-                        Main Navigation
-                    </p>
-                    <nav className="space-y-1">
-                        {navItems.map((item) => {
-                            const IconComponent = item.icon;
-                            const isActive = activeTab === item.id;
+                <nav aria-label="Main" className="space-y-1">
+                    {navItems.map((item) => {
+                        const IconComponent = item.icon;
+                        const isActive = activeTab === item.id;
 
-                            return (
-                                <button
-                                    key={item.id}
-                                    onClick={() => handleNavClick(item.id)}
-                                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                                        isActive
-                                            ? 'bg-ustp-navy text-white shadow-sm dark:bg-ustp-navy dark:border dark:border-ustp-gold/30'
-                                            : 'text-slate-600 dark:text-slate-300 hover:text-ustp-navy dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
-                                    }`}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <IconComponent
-                                            className={`w-4 h-4 shrink-0 ${
-                                                isActive
-                                                    ? 'text-ustp-gold'
-                                                    : 'text-slate-400 dark:text-slate-400 group-hover:text-ustp-navy'
-                                            }`}
-                                        />
-                                        <div className="text-left">
-                                            <div>{item.label}</div>
-                                            <div
-                                                className={`text-[10px] font-normal ${
-                                                    isActive
-                                                        ? 'text-slate-300'
-                                                        : 'text-slate-400 dark:text-slate-500'
-                                                }`}
-                                            >
-                                                {item.desc}
-                                            </div>
-                                        </div>
-                                    </div>
+                        return (
+                            <button
+                                type="button"
+                                key={item.id}
+                                onClick={() => handleNavClick(item.id)}
+                                aria-current={isActive ? 'page' : undefined}
+                                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ustp-navy dark:focus-visible:outline-ustp-gold ${
+                                    isActive
+                                        ? 'bg-ustp-navy text-white shadow-sm dark:bg-[#1E184D] dark:border dark:border-ustp-gold/60'
+                                        : 'text-slate-700 dark:text-slate-200 hover:text-ustp-navy dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                                }`}
+                            >
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <IconComponent
+                                        aria-hidden="true"
+                                        className={`w-4 h-4 shrink-0 ${
+                                            isActive
+                                                ? 'text-ustp-gold'
+                                                : 'text-slate-500 dark:text-slate-400 group-hover:text-ustp-navy'
+                                        }`}
+                                    />
+                                    <span className="truncate">{item.label}</span>
+                                </div>
 
-                                    {item.badge && (
-                                        <span
-                                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                                isActive
-                                                    ? 'bg-ustp-gold text-ustp-navy'
-                                                    : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-ustp-gold border border-amber-300 dark:border-amber-700/50'
-                                            }`}
-                                        >
-                                            {item.badge}
-                                        </span>
-                                    )}
-                                </button>
-                            );
-                        })}
-                    </nav>
-                </div>
+                                {item.badge && (
+                                    <span
+                                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 ${
+                                            isActive
+                                                ? 'bg-ustp-gold text-ustp-navy-deep'
+                                                : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-ustp-gold border border-amber-300 dark:border-amber-700/50'
+                                        }`}
+                                    >
+                                        {item.badge}
+                                    </span>
+                                )}
+                            </button>
+                        );
+                    })}
+                </nav>
             </div>
 
             {/* Bottom Controls: Dark Mode Toggle & Account Section */}
             <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
-                {/* Dark Mode Flat Toggle */}
-                <div className="bg-slate-100 dark:bg-slate-900/80 p-1 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center">
-                    <button
-                        onClick={() => theme === 'dark' && toggleTheme()}
-                        className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                            !isDark
-                                ? 'bg-white text-ustp-navy shadow-sm'
-                                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
-                        }`}
-                        aria-pressed={!isDark}
-                    >
-                        <Sun className={`w-3.5 h-3.5 ${!isDark ? 'text-ustp-gold' : ''}`} />
-                        <span>Light</span>
-                    </button>
-                    <button
-                        onClick={() => theme === 'light' && toggleTheme()}
-                        className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                            isDark
-                                ? 'bg-ustp-navy text-white shadow-sm'
-                                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
-                        }`}
-                        aria-pressed={isDark}
-                    >
-                        <Moon className={`w-3.5 h-3.5 ${isDark ? 'text-ustp-gold' : ''}`} />
-                        <span>Dark</span>
-                    </button>
-                </div>
+                {/* Dark Mode Flat Toggle (Authenticated users only) */}
+                {isAuthenticated && (
+                    <div role="group" aria-label="Color theme" className="bg-slate-100 dark:bg-slate-900/80 p-1 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center">
+                        <button
+                            type="button"
+                            onClick={() => theme === 'dark' && toggleTheme()}
+                            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ustp-navy dark:focus-visible:outline-ustp-gold ${
+                                !isDark
+                                    ? 'bg-white text-ustp-navy shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                            }`}
+                            aria-pressed={!isDark}
+                        >
+                            <Sun className={`w-3.5 h-3.5 ${!isDark ? 'text-ustp-gold' : ''}`} aria-hidden="true" />
+                            <span>Light</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => theme === 'light' && toggleTheme()}
+                            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ustp-navy dark:focus-visible:outline-ustp-gold ${
+                                isDark
+                                    ? 'bg-[#1E184D] text-white border border-ustp-gold/40 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                            }`}
+                            aria-pressed={isDark}
+                        >
+                            <Moon className={`w-3.5 h-3.5 ${isDark ? 'text-ustp-gold' : ''}`} aria-hidden="true" />
+                            <span>Dark</span>
+                        </button>
+                    </div>
+                )}
 
                 {/* User Account Summary & Logout */}
                 {isAuthenticated ? (
-                    <div className="p-3 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 shadow-xs">
+                    <div className="p-2.5 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 shadow-xs">
                         <button
                             type="button"
                             onClick={onOpenProfile}
                             title="View Campus Account Profile"
-                            className="flex items-center gap-2.5 min-w-0 flex-1 text-left rounded-xl hover:opacity-85 transition-opacity cursor-pointer"
+                            className="flex items-center gap-2.5 min-w-0 flex-1 text-left rounded-xl p-0.5 hover:opacity-85 transition-opacity cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ustp-navy dark:focus-visible:outline-ustp-gold"
                         >
                             {/* Avatar */}
-                            <div className="w-9 h-9 rounded-xl bg-ustp-navy text-ustp-gold font-bold text-xs flex items-center justify-center shrink-0 border border-ustp-navy-light dark:border-ustp-gold/30">
+                            <div className="w-9 h-9 rounded-xl bg-ustp-navy text-ustp-gold font-bold text-xs flex items-center justify-center shrink-0 border border-ustp-navy-light dark:border-ustp-gold/30" aria-hidden="true">
                                 {getInitials(user?.name)}
                             </div>
-                            <div className="min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                                        {user?.name}
-                                    </p>
-                                    <span className="text-[9px] uppercase font-mono px-1 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold shrink-0">
+                            <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                    {user?.name}
+                                </p>
+                                <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                                    <span className="text-[9px] uppercase font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold shrink-0">
                                         {user?.role}
                                     </span>
+                                    <p className="text-[10px] text-slate-600 dark:text-slate-300 truncate font-mono">
+                                        {user?.id_number || user?.email}
+                                    </p>
                                 </div>
-                                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate font-mono">
-                                    {user?.id_number || user?.email}
-                                </p>
                             </div>
                         </button>
 
                         {/* Sign Out Button */}
                         <button
+                            type="button"
                             onClick={logout}
                             title="Sign out of Equiply"
-                            className="p-2 rounded-xl text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/50 transition-colors"
+                            className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/50 transition-colors shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ustp-navy dark:focus-visible:outline-ustp-gold"
                             aria-label="Sign out"
                         >
-                            <LogOut className="w-4 h-4" />
+                            <LogOut className="w-4 h-4" aria-hidden="true" />
                         </button>
                     </div>
                 ) : (
                     <div className="space-y-2">
                         <div className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 text-center">
-                            <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block">
+                            <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block">
                                 Guest Visitor
                             </span>
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 block">
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
                                 Sign in to borrow and reserve equipment
                             </span>
                         </div>
                         <button
+                            type="button"
                             onClick={handleLoginClick}
-                            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-ustp-navy hover:bg-ustp-navy-hover text-white text-xs font-bold shadow-xs transition-colors"
+                            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-ustp-navy hover:bg-ustp-navy-hover text-white dark:bg-ustp-gold dark:hover:bg-ustp-gold-hover dark:text-ustp-navy-deep text-xs font-bold shadow-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ustp-navy dark:focus-visible:outline-ustp-gold"
                         >
-                            <LogIn className="w-4 h-4 text-ustp-gold" />
+                            <LogIn className="w-4 h-4 text-ustp-gold dark:text-ustp-navy-deep" aria-hidden="true" />
                             Sign In to Portal
                         </button>
                     </div>
@@ -316,14 +309,17 @@ export default function Sidebar({ activeTab, setActiveTab, onNavigateToLogin, on
                 </div>
 
                 <div className="flex items-center gap-2">
-                    {/* Quick Dark Mode Toggle on Mobile */}
-                    <button
-                        onClick={toggleTheme}
-                        className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 transition-colors"
-                        aria-label="Toggle dark mode"
-                    >
-                        {isDark ? <Sun className="w-4 h-4 text-ustp-gold" /> : <Moon className="w-4 h-4 text-ustp-navy" />}
-                    </button>
+                    {/* Quick Dark Mode Toggle on Mobile (Authenticated users only) */}
+                    {isAuthenticated && (
+                        <button
+                            type="button"
+                            onClick={toggleTheme}
+                            className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ustp-navy dark:focus-visible:outline-ustp-gold"
+                            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                        >
+                            {isDark ? <Sun className="w-4 h-4 text-ustp-gold" aria-hidden="true" /> : <Moon className="w-4 h-4 text-ustp-navy" aria-hidden="true" />}
+                        </button>
+                    )}
 
                     {/* Mobile Hamburger Button */}
                     <button
