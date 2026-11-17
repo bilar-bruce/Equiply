@@ -164,7 +164,7 @@ export default function ReservationModal({ item, onClose, onSuccess }) {
                                     className={`py-2 px-3 text-xs font-semibold rounded-xl border transition-all text-left flex items-center gap-2 ${
                                         collateralType === 'Academic Clearance Hold'
                                             ? 'bg-ustp-navy text-white border-ustp-navy dark:border-ustp-gold/50 shadow-xs'
-                                            : 'bg-slate-50 dark:bg-slate-850 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
+                                            : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
                                     }`}
                                 >
                                     <ShieldCheck className="w-4 h-4 shrink-0 text-ustp-gold" />
@@ -180,7 +180,7 @@ export default function ReservationModal({ item, onClose, onSuccess }) {
                                     className={`py-2 px-3 text-xs font-semibold rounded-xl border transition-all text-left flex items-center gap-2 ${
                                         collateralType === 'Refundable Cash Deposit'
                                             ? 'bg-ustp-navy text-white border-ustp-navy dark:border-ustp-gold/50 shadow-xs'
-                                            : 'bg-slate-50 dark:bg-slate-850 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
+                                            : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
                                     }`}
                                 >
                                     <Banknote className="w-4 h-4 shrink-0 text-emerald-500" />

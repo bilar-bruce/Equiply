@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { peerLenderApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useFeedback } from '../context/FeedbackContext';
 import { formatPHP } from '../utils/currency';
+import RegisterListingModal from './peer-lender/RegisterListingModal';
+import EditRateModal from './peer-lender/EditRateModal';
 import {
     Sparkles,
     Package,
@@ -25,8 +28,10 @@ import {
 
 export default function MyListingsView() {
     const { user } = useAuth();
+    const { showToast: pushToast, confirm } = useFeedback();
 
     const [items, setItems] = useState([]);
+    const [payoutRentals, setPayoutRentals] = useState([]);
     const [metrics, setMetrics] = useState({
         total_listed: 0,
         active_loans: 0,
@@ -55,8 +60,11 @@ export default function MyListingsView() {
     const [savingEdit, setSavingEdit] = useState(false);
 
     const showToast = (msg, isError = false) => {
-        setToastMessage({ text: msg, isError });
-        setTimeout(() => setToastMessage(null), 4000);
+        pushToast({
+            type: isError ? 'error' : 'success',
+            title: isError ? 'Action Failed' : 'Peer Lender Update',
+            message: msg,
+        });
     };
 
     const fetchListings = async () => {
@@ -64,6 +72,7 @@ export default function MyListingsView() {
         try {
             const res = await peerLenderApi.getListings();
             setItems(res.items || []);
+            setPayoutRentals(res.rentals || []);
             if (res.metrics) {
                 setMetrics(res.metrics);
             }
@@ -118,7 +127,13 @@ export default function MyListingsView() {
             ? `Re-submit [${item.item_code}] to the facility desk intake queue?`
             : `Recall [${item.item_code}] from campus catalog circulation?`;
 
-        if (!window.confirm(actionPrompt)) return;
+        const ok = await confirm({
+            title: isWithdrawn ? 'Re-submit Listing' : 'Recall Equipment',
+            message: actionPrompt,
+            confirmLabel: isWithdrawn ? 'Re-submit' : 'Recall Gear',
+            tone: isWithdrawn ? 'primary' : 'warning',
+        });
+        if (!ok) return;
 
         setActionLoadingId(itemId);
         try {
@@ -446,184 +461,110 @@ export default function MyListingsView() {
                 )}
             </div>
 
-            {/* Modal: Register Gear for Desk Intake */}
-            {registerModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-                    <div className="relative w-full max-w-lg rounded-2xl bg-white dark:bg-[#151136] border border-slate-200 dark:border-slate-800 shadow-2xl p-6">
-                        <div className="flex items-start justify-between mb-4">
-                            <div>
-                                <h3 className="text-base font-bold text-slate-900 dark:text-white font-['Outfit']">
-                                    Register Equipment for Facility Intake
-                                </h3>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                    Submit your gear details. You will present the item to the facility desk for intake.
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => setRegisterModalOpen(false)}
-                                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleRegisterSubmit} className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                                    Equipment Name <span className="text-rose-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    required
-                                    placeholder="e.g. Raspberry Pi 4 Model B (4GB RAM) with Sensor Kit"
-                                    value={itemName}
-                                    onChange={(e) => setItemName(e.target.value)}
-                                    className="w-full px-3 py-2 rounded-xl text-xs flat-input"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                                        Category <span className="text-rose-500">*</span>
-                                    </label>
-                                    <select
-                                        value={category}
-                                        onChange={(e) => setCategory(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-xl text-xs flat-input"
-                                    >
-                                        <option value="Electronics">Electronics</option>
-                                        <option value="Computation">Computation</option>
-                                        <option value="Laboratory Attire">Laboratory Attire</option>
-                                        <option value="General">General</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                                        Flat Rental Fee (₱) <span className="text-rose-500">*</span>
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="1.00"
-                                        min="5"
-                                        required
-                                        placeholder="30.00"
-                                        value={rentalRate}
-                                        onChange={(e) => setRentalRate(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-xl text-xs font-mono flat-input"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800">
-                                <input
-                                    type="checkbox"
-                                    id="peerDepositReq"
-                                    checked={depositRequired}
-                                    onChange={(e) => setDepositRequired(e.target.checked)}
-                                    className="w-4 h-4 rounded text-ustp-navy focus:ring-0 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700"
-                                />
-                                <label htmlFor="peerDepositReq" className="text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
-                                    <span className="font-semibold block">Require Refundable Cash Deposit</span>
-                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
-                                        Borrowers must provide a cash deposit at the desk in addition to an academic clearance hold.
-                                    </span>
-                                </label>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                                    Specifications / Notes for Custodian
-                                </label>
-                                <textarea
-                                    rows={2}
-                                    placeholder="Include accessories, condition details, or power specifications..."
-                                    value={specNotes}
-                                    onChange={(e) => setSpecNotes(e.target.value)}
-                                    className="w-full px-3 py-2 rounded-xl text-xs flat-input"
-                                />
-                            </div>
-
-                            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-                                <button
-                                    type="button"
-                                    onClick={() => setRegisterModalOpen(false)}
-                                    className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold bg-ustp-navy hover:bg-ustp-navy-hover text-white shadow-xs transition-colors"
-                                >
-                                    <Plus className="w-4 h-4 text-ustp-gold" />
-                                    <span>{submitting ? 'Registering...' : 'Register for Desk Intake'}</span>
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+            {/* Payout Settlement History */}
+            <div className="rounded-2xl flat-panel overflow-hidden">
+                <div className="p-4 sm:px-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                    <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                        <Banknote className="w-4 h-4 text-ustp-navy dark:text-ustp-gold" />
+                        Payout Settlement History
+                    </h2>
+                    <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                        {payoutRentals.length} completed {payoutRentals.length === 1 ? 'loan' : 'loans'}
+                    </span>
                 </div>
-            )}
+
+                {payoutRentals.length === 0 ? (
+                    <div className="p-8 text-center">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                            No completed peer-to-peer rentals yet. Returned loans will appear here with their payout status.
+                        </p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                    <th className="py-3 px-4">Rental Code</th>
+                                    <th className="py-3 px-4">Equipment</th>
+                                    <th className="py-3 px-4">Returned</th>
+                                    <th className="py-3 px-4">Earnings</th>
+                                    <th className="py-3 px-4">Payout Status</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70 text-xs">
+                                {payoutRentals.map((r) => {
+                                    const isSettled = r.payout_status === 'settled';
+                                    return (
+                                        <tr key={r.id || r.rental_code} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                            <td className="py-3 px-4 font-mono font-bold text-ustp-navy dark:text-ustp-gold">
+                                                {r.rental_code}
+                                            </td>
+                                            <td className="py-3 px-4">
+                                                <div className="font-semibold text-slate-900 dark:text-white">{r.item_name}</div>
+                                                <div className="text-[10px] font-mono text-slate-400">{r.item_code}</div>
+                                            </td>
+                                            <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
+                                                {r.returned_time ? new Date(r.returned_time).toLocaleString() : '—'}
+                                            </td>
+                                            <td className="py-3 px-4 font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                                                {formatPHP(r.total_fee ?? 0)}
+                                            </td>
+                                            <td className="py-3 px-4">
+                                                {isSettled ? (
+                                                    <div>
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                                                            <CheckCircle2 className="w-3 h-3" />
+                                                            Settled
+                                                        </span>
+                                                        {r.payout_settled_at && (
+                                                            <div className="text-[10px] text-slate-400 mt-0.5">
+                                                                {new Date(r.payout_settled_at).toLocaleDateString()}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                                                        <Clock className="w-3 h-3" />
+                                                        Unclaimed
+                                                    </span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            {/* Modal: Register Gear for Desk Intake */}
+            <RegisterListingModal
+                open={registerModalOpen}
+                itemName={itemName}
+                setItemName={setItemName}
+                category={category}
+                setCategory={setCategory}
+                rentalRate={rentalRate}
+                setRentalRate={setRentalRate}
+                depositRequired={depositRequired}
+                setDepositRequired={setDepositRequired}
+                specNotes={specNotes}
+                setSpecNotes={setSpecNotes}
+                submitting={submitting}
+                onSubmit={handleRegisterSubmit}
+                onClose={() => setRegisterModalOpen(false)}
+            />
 
             {/* Modal: Edit Rental Rate */}
-            {editItem && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-                    <div className="relative w-full max-w-sm rounded-2xl bg-white dark:bg-[#151136] border border-slate-200 dark:border-slate-800 shadow-2xl p-6">
-                        <div className="flex items-start justify-between mb-3">
-                            <div>
-                                <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-ustp-navy dark:text-ustp-gold border border-slate-200 dark:border-slate-700">
-                                    {editItem.item_code}
-                                </span>
-                                <h3 className="text-sm font-bold text-slate-900 dark:text-white mt-1">
-                                    Edit Rental Rate
-                                </h3>
-                            </div>
-                            <button
-                                onClick={() => setEditItem(null)}
-                                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleEditRateSubmit} className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                                    Flat Rental Fee (₱)
-                                </label>
-                                <input
-                                    type="number"
-                                    step="1.00"
-                                    min="5"
-                                    required
-                                    value={editRate}
-                                    onChange={(e) => setEditRate(e.target.value)}
-                                    className="w-full px-3 py-2 rounded-xl text-xs font-mono flat-input"
-                                />
-                            </div>
-
-                            <div className="flex justify-end gap-2 pt-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setEditItem(null)}
-                                    className="px-3 py-1.5 rounded-xl text-xs text-slate-500 hover:text-slate-700"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={savingEdit}
-                                    className="px-4 py-2 rounded-xl text-xs font-bold bg-ustp-navy hover:bg-ustp-navy-hover text-white shadow-xs transition-colors"
-                                >
-                                    {savingEdit ? 'Saving...' : 'Save Rate'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            <EditRateModal
+                item={editItem}
+                editRate={editRate}
+                setEditRate={setEditRate}
+                savingEdit={savingEdit}
+                onSubmit={handleEditRateSubmit}
+                onClose={() => setEditItem(null)}
+            />
         </div>
     );
 }

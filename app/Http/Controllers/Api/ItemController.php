@@ -104,12 +104,15 @@ class ItemController extends Controller
             $items = Item::select(['category', 'availability_stat'])->get();
 
             $counts = [];
-            $totalAvailable = 0;
+            $totalAvailable = $items->where('availability_stat', 'available')->count();
+            $otherItems = $items->filter(fn ($i) => ! in_array($i->category, $categories, true));
 
             foreach ($categories as $cat) {
                 $catItems = $items->where('category', $cat);
+                if ($cat === 'General' && $otherItems->isNotEmpty()) {
+                    $catItems = $catItems->concat($otherItems);
+                }
                 $availCount = $catItems->where('availability_stat', 'available')->count();
-                $totalAvailable += $availCount;
 
                 $counts[] = [
                     'name' => $cat,

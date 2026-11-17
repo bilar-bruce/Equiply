@@ -17,7 +17,7 @@ import {
     History
 } from 'lucide-react';
 
-export default function Sidebar({ activeTab, setActiveTab, onNavigateToLogin, onOpenAuthModal }) {
+export default function Sidebar({ activeTab, setActiveTab, onNavigateToLogin, onOpenAuthModal, onOpenProfile }) {
     const { user, isAuthenticated, logout, isCustodian, isAdmin } = useAuth();
     const { theme, isDark, toggleTheme } = useTheme();
     const [mobileOpen, setMobileOpen] = useState(false);
@@ -239,7 +239,12 @@ export default function Sidebar({ activeTab, setActiveTab, onNavigateToLogin, on
                 {/* User Account Summary & Logout */}
                 {isAuthenticated ? (
                     <div className="p-3 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 shadow-xs">
-                        <div className="flex items-center gap-2.5 min-w-0">
+                        <button
+                            type="button"
+                            onClick={onOpenProfile}
+                            title="View Campus Account Profile"
+                            className="flex items-center gap-2.5 min-w-0 flex-1 text-left rounded-xl hover:opacity-85 transition-opacity cursor-pointer"
+                        >
                             {/* Avatar */}
                             <div className="w-9 h-9 rounded-xl bg-ustp-navy text-ustp-gold font-bold text-xs flex items-center justify-center shrink-0 border border-ustp-navy-light dark:border-ustp-gold/30">
                                 {getInitials(user?.name)}
@@ -257,7 +262,7 @@ export default function Sidebar({ activeTab, setActiveTab, onNavigateToLogin, on
                                     {user?.id_number || user?.email}
                                 </p>
                             </div>
-                        </div>
+                        </button>
 
                         {/* Sign Out Button */}
                         <button

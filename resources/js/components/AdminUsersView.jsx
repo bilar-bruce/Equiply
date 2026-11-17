@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { adminApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useFeedback } from '../context/FeedbackContext';
 import EnrollStudentModal from './EnrollStudentModal';
 import {
     Users,
@@ -22,6 +23,7 @@ import {
 
 export default function AdminUsersView() {
     const { user: currentUser } = useAuth();
+    const { confirm } = useFeedback();
 
     const [users, setUsers] = useState([]);
     const [metrics, setMetrics] = useState({
@@ -84,7 +86,13 @@ export default function AdminUsersView() {
             ? `Suspend campus account for ${user.name} (${user.id_number})? They will not be able to log in or reserve equipment.`
             : `Re-activate campus account for ${user.name} (${user.id_number})?`;
 
-        if (!window.confirm(confirmMsg)) return;
+        const ok = await confirm({
+            title: newStatus === 'suspended' ? 'Suspend Campus Account' : 'Re-activate Campus Account',
+            message: confirmMsg,
+            confirmLabel: newStatus === 'suspended' ? 'Suspend Account' : 'Re-activate',
+            tone: newStatus === 'suspended' ? 'danger' : 'primary',
+        });
+        if (!ok) return;
 
         setActionLoadingId(userId);
         try {
@@ -127,7 +135,13 @@ export default function AdminUsersView() {
             return;
         }
 
-        if (!window.confirm(`Change role of ${user.name} to ${newRole.toUpperCase()}?`)) return;
+        const ok = await confirm({
+            title: 'Change Staff Role',
+            message: `Change role of ${user.name} to ${newRole.toUpperCase()}?`,
+            confirmLabel: 'Update Role',
+            tone: 'warning',
+        });
+        if (!ok) return;
 
         setActionLoadingId(userId);
         try {

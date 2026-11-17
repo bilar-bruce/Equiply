@@ -36,6 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::post('/change-password', [AuthController::class, 'changePassword']);
+        Route::patch('/profile', [AuthController::class, 'updateProfile']);
     });
 
     // Item management (Peer lenders & Custodians)

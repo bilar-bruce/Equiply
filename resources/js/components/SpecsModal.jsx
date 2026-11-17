@@ -124,7 +124,7 @@ export default function SpecsModal({ item, onClose, onReserve }) {
                                 {Object.entries(item.specs).map(([key, value]) => (
                                     <div
                                         key={key}
-                                        className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700/80 flex flex-col justify-between"
+                                        className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 flex flex-col justify-between"
                                     >
                                         <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">
                                             {key.replace(/_/g, ' ')}

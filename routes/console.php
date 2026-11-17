@@ -161,7 +161,7 @@ Artisan::command('equiply:send-loan-reminders', function () {
     return 0;
 })->purpose('Send due-soon (30m) and overdue email reminders for active equipment rentals');
 
-Schedule::command('equiply:send-loan-reminders')->everyFiveMinutes();
+Schedule::command('equiply:send-loan-reminders')->everyFiveMinutes()->withoutOverlapping();
 
 Artisan::command('equiply:expire-unclaimed-reservations', function () {
     $count = \App\Models\Rental::expireUnclaimedReservations();
@@ -169,5 +169,160 @@ Artisan::command('equiply:expire-unclaimed-reservations', function () {
     return 0;
 })->purpose('Expire unclaimed equipment reservations past their 30-minute pickup window');
 
-Schedule::command('equiply:expire-unclaimed-reservations')->everyMinute();
+Schedule::command('equiply:expire-unclaimed-reservations')->everyFiveMinutes()->withoutOverlapping();
+
+Artisan::command('equiply:clean-test-artifacts {--dry-run : Preview records that would be removed without deleting}', function () {
+    $dryRun = (bool) $this->option('dry-run');
+
+    $testItems = \App\Models\Item::where('item_code', 'like', 'TEST-%')
+        ->orWhere('item_code', 'like', 'EQ-TEST-%')
+        ->get();
+
+    $testItemIds = $testItems->pluck('_id')->all();
+
+    $testRentals = \App\Models\Rental::whereIn('item_id', $testItemIds)
+        ->orWhere('rental_code', 'like', 'TEST-%')
+        ->get();
+
+    $testStudents = \App\Models\User::where('role', 'student')
+        ->where(function ($q) {
+            $q->where('email', 'like', '%@test.%')
+                ->orWhere('email', 'like', '%test%@%')
+                ->orWhere('id_number', 'like', '202699%');
+        })
+        ->get();
+
+    $this->info(($dryRun ? '[DRY RUN] ' : '') . "Found {$testItems->count()} test item(s), {$testRentals->count()} test rental(s), and {$testStudents->count()} test student account(s).");
+
+    if ($dryRun) {
+        return 0;
+    }
+
+    foreach ($testRentals as $rental) {
+        $rental->delete();
+    }
+    foreach ($testItems as $item) {
+        $item->delete();
+    }
+    foreach ($testStudents as $student) {
+        $student->delete();
+    }
+
+    \Illuminate\Support\Facades\Cache::forget('equiply_category_counts');
+    $this->info('Test artifacts cleansed while preserving staff accounts and official facility gear.');
+
+    return 0;
+})->purpose('Remove test-generated items, rentals, and test student accounts from the active database');
+
+Artisan::command('equiply:prune-users {--dry-run : Preview changes without modifying the database} {--personal-id= : Optional 10-digit school ID to assign to bilar.bruce@gmail.com}', function () {
+    $dryRun = (bool) $this->option('dry-run');
+    $personalId = $this->option('personal-id');
+
+    if ($personalId !== null && $personalId !== '' && ! preg_match('/^\d{10}$/', $personalId)) {
+        $this->error('Invalid --personal-id: must be a 10-digit USTP ID number (e.g. 2024300616).');
+        return 1;
+    }
+
+    $keepEmails = [
+        'bilar.bruce@gmail.com',
+        'bilarbrucesteven@gmail.com',
+        'bilarcaroljane540@gmail.com',
+        'sheenamaeparco@gmail.com',
+    ];
+
+    $usersToDelete = \App\Models\User::whereNotIn('role', ['admin', 'custodian'])
+        ->whereNotIn('email', $keepEmails)
+        ->get();
+
+    $deleteIds = $usersToDelete->pluck('_id')->map(fn ($id) => (string) $id)->all();
+    $deleteObjectIds = $usersToDelete->pluck('_id')->all();
+
+    $orphanedP2pItems = empty($deleteObjectIds)
+        ? collect()
+        : \App\Models\Item::where('owner_type', 'student')
+            ->where(function ($q) use ($deleteIds, $deleteObjectIds) {
+                $q->whereIn('owner_user_id', $deleteObjectIds)->orWhereIn('owner_user_id', $deleteIds);
+            })
+            ->get();
+
+    $orphanedItemIds = $orphanedP2pItems->pluck('_id')->all();
+
+    $orphanedRentals = (empty($deleteObjectIds) && empty($orphanedItemIds))
+        ? collect()
+        : \App\Models\Rental::where(function ($q) use ($deleteIds, $deleteObjectIds, $orphanedItemIds) {
+            if (! empty($deleteObjectIds)) {
+                $q->whereIn('borrower_id', $deleteObjectIds)->orWhereIn('borrower_id', $deleteIds);
+            }
+            if (! empty($orphanedItemIds)) {
+                $q->orWhereIn('item_id', $orphanedItemIds);
+            }
+        })->get();
+
+    $this->info(($dryRun ? '[DRY RUN] ' : '') . "Users to remove: {$usersToDelete->count()}");
+    foreach ($usersToDelete as $u) {
+        $this->line(" - {$u->name} <{$u->email}> ({$u->id_number})");
+    }
+    $this->info(($dryRun ? '[DRY RUN] ' : '') . "Orphaned P2P items to remove: {$orphanedP2pItems->count()}");
+    $this->info(($dryRun ? '[DRY RUN] ' : '') . "Orphaned rentals to remove: {$orphanedRentals->count()}");
+
+    if ($dryRun) {
+        return 0;
+    }
+
+    // 1. Reset any non-orphaned items currently held by orphaned rentals back to 'available'
+    foreach ($orphanedRentals as $rental) {
+        if (in_array($rental->status, ['pending', 'reserved', 'active'], true) && ! in_array($rental->item_id, $orphanedItemIds)) {
+            $heldItem = \App\Models\Item::find($rental->item_id);
+            if ($heldItem && in_array($heldItem->availability_stat, ['reserved', 'rented'], true)) {
+                $heldItem->availability_stat = 'available';
+                $heldItem->save();
+            }
+        }
+        $rental->delete();
+    }
+
+    // 2. Delete orphaned P2P items
+    foreach ($orphanedP2pItems as $item) {
+        $item->delete();
+    }
+
+    // 3. Delete Sanctum tokens and pruned users (frees up taken id_numbers like 2024300616)
+    if (! empty($deleteIds)) {
+        \App\Models\PersonalAccessToken::whereIn('tokenable_id', $deleteObjectIds)
+            ->orWhereIn('tokenable_id', $deleteIds)
+            ->delete();
+    }
+    foreach ($usersToDelete as $u) {
+        $u->delete();
+    }
+
+    // 4. Align kept personal & peer lender accounts
+    $renter = \App\Models\User::where('email', 'bilar.bruce@gmail.com')->first();
+    if ($renter) {
+        $renter->role = 'student';
+        $renter->is_peer_lender = false;
+        if ($personalId) {
+            $renter->id_number = $personalId;
+        }
+        $renter->save();
+        $this->info("Updated bilar.bruce@gmail.com -> student renter" . ($personalId ? " (ID: {$personalId})" : '') . '.');
+    } else {
+        $this->warn('Account bilar.bruce@gmail.com not found in database.');
+    }
+
+    $lender = \App\Models\User::where('email', 'bilarbrucesteven@gmail.com')->first();
+    if ($lender) {
+        $lender->role = 'student';
+        $lender->is_peer_lender = true;
+        $lender->save();
+        $this->info('Updated bilarbrucesteven@gmail.com -> student peer lender (is_peer_lender=true).');
+    } else {
+        $this->warn('Account bilarbrucesteven@gmail.com not found in database.');
+    }
+
+    \Illuminate\Support\Facades\Cache::forget('equiply_category_counts');
+    $this->info('User pruning and account updates completed.');
+
+    return 0;
+})->purpose('Prune non-whitelisted student accounts, clean orphaned records, and configure personal/lender accounts');
 

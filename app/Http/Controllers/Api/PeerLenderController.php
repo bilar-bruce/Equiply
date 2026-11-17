@@ -67,9 +67,25 @@ class PeerLenderController extends Controller
             'pending_intake' => $items->where('availability_stat', 'pending_intake')->count(),
         ];
 
+        $payoutLedger = $returnedRentals
+            ->sortByDesc(fn ($r) => $r->schedule['returned_time'] ?? $r->updated_at?->toIso8601String() ?? '')
+            ->values()
+            ->map(fn ($r) => [
+                'id' => (string) $r->_id,
+                'rental_code' => $r->rental_code,
+                'item_name' => $r->item_snapshot['name'] ?? ($items->firstWhere('_id', $r->item_id)?->name ?? 'Peer Equipment'),
+                'item_code' => $r->item_snapshot['item_code'] ?? ($items->firstWhere('_id', $r->item_id)?->item_code ?? '—'),
+                'returned_time' => $r->schedule['returned_time'] ?? null,
+                'total_fee' => round((float) ($r->financials['total_fee'] ?? 0.0), 2),
+                'payout_status' => $r->financials['payout_status'] ?? 'unclaimed',
+                'payout_settled_at' => $r->financials['payout_settled_at'] ?? null,
+                'payout_settled_by_name' => $r->financials['payout_settled_by_name'] ?? null,
+            ]);
+
         return response()->json([
             'metrics' => $metrics,
             'items' => ItemResource::collection($items),
+            'rentals' => $payoutLedger,
         ]);
     }
 
@@ -292,6 +308,7 @@ class PeerLenderController extends Controller
         $financials['payout_status'] = 'settled';
         $financials['payout_settled_at'] = now()->toIso8601String();
         $financials['payout_settled_by'] = (string) $custodian->_id;
+        $financials['payout_settled_by_name'] = $custodian->name;
 
         $rental->financials = $financials;
         $rental->save();

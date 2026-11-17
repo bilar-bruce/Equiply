@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useFeedback } from '../context/FeedbackContext';
 import { reservationsApi } from '../api/client';
 import { formatPHP } from '../utils/currency';
+import PickupPassModal from './PickupPassModal';
 import {
     Clock,
     CalendarCheck,
@@ -10,15 +12,18 @@ import {
     XCircle,
     FileText,
     RefreshCw,
-    Shield
+    Shield,
+    QrCode
 } from 'lucide-react';
 
 export default function MyRentalsView({ onRefreshTrigger, onNavigateToLogin, onOpenAuthModal, refreshKey }) {
     const { user, isAuthenticated } = useAuth();
+    const { showToast, confirm } = useFeedback();
     const [myRentals, setMyRentals] = useState([]);
     const [loading, setLoading] = useState(false);
     const [cancellingId, setCancellingId] = useState(null);
     const [nowMs, setNowMs] = useState(() => Date.now());
+    const [pickupPassData, setPickupPassData] = useState(null);
 
     const handleLoginClick = onNavigateToLogin || onOpenAuthModal;
 
@@ -74,14 +79,21 @@ export default function MyRentalsView({ onRefreshTrigger, onNavigateToLogin, onO
     }
 
     const handleCancel = async (id) => {
-        if (!confirm('Are you sure you want to cancel this pending reservation?')) return;
+        const ok = await confirm({
+            title: 'Cancel Reservation',
+            message: 'Are you sure you want to cancel this pending reservation? The equipment will be released back to the catalog.',
+            confirmLabel: 'Cancel Reservation',
+            tone: 'danger',
+        });
+        if (!ok) return;
         setCancellingId(id);
         try {
             await reservationsApi.cancel(id);
+            showToast({ type: 'success', title: 'Reservation Cancelled', message: 'Pending reservation cancelled and equipment released.' });
             await fetchMyRentals();
             if (onRefreshTrigger) onRefreshTrigger();
         } catch (err) {
-            alert(err.response?.data?.message || 'Cancellation failed.');
+            showToast({ type: 'error', title: 'Cancellation Failed', message: err.response?.data?.message || 'Cancellation failed.' });
         } finally {
             setCancellingId(null);
         }
@@ -233,7 +245,18 @@ export default function MyRentalsView({ onRefreshTrigger, onNavigateToLogin, onO
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-2 self-end md:self-center">
+                                <div className="flex flex-wrap items-center gap-2 self-end md:self-center">
+                                    {(isPending || isActive) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setPickupPassData({ rental, remainingMins })}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-ustp-navy hover:bg-ustp-navy/90 text-white dark:bg-ustp-gold dark:hover:bg-amber-400 dark:text-ustp-navy shadow-xs transition-all"
+                                        >
+                                            <QrCode className="w-3.5 h-3.5" />
+                                            Show Desk Pickup Pass
+                                        </button>
+                                    )}
+
                                     {isPending && (
                                         <button
                                             disabled={cancellingId === (rental.id || rental._id)}
@@ -271,6 +294,13 @@ export default function MyRentalsView({ onRefreshTrigger, onNavigateToLogin, onO
                     })}
                 </div>
             )}
+
+            <PickupPassModal
+                rental={pickupPassData?.rental}
+                user={user}
+                remainingMins={pickupPassData?.remainingMins ?? null}
+                onClose={() => setPickupPassData(null)}
+            />
         </div>
     );
 }

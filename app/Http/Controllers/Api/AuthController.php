@@ -105,6 +105,25 @@ class AuthController extends Controller
     }
 
     /**
+     * Update the authenticated user's self-service profile fields (contact number).
+     */
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'contact_number' => 'required|string|max:30',
+        ]);
+
+        $user = $request->user();
+        $user->contact_number = trim($validated['contact_number']);
+        $user->save();
+
+        return response()->json([
+            'message' => 'Contact number updated successfully.',
+            'user' => new UserResource($user),
+        ]);
+    }
+
+    /**
      * Update the authenticated user's password and complete first-login verification.
      */
     public function changePassword(Request $request): JsonResponse

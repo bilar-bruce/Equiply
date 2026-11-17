@@ -74,7 +74,7 @@ class LifecycleNotificationTest extends TestCase
             ['item_code' => 'TEST-NOTIFY-001'],
             [
                 'name' => 'Scientific Graphing Calculator TI-84 Plus',
-                'category' => 'Calculators & Math',
+                'category' => 'Computation',
                 'owner_type' => 'facility',
                 'owner_user_id' => null,
                 'rental_rate_flat' => 30.00,

@@ -1,23 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { FeedbackProvider } from './context/FeedbackContext';
 import Sidebar from './components/Sidebar';
 import CatalogView from './components/CatalogView';
-import CustodianDashboard from './components/CustodianDashboard';
 import MyRentalsView from './components/MyRentalsView';
-import AdminUsersView from './components/AdminUsersView';
-import MyListingsView from './components/MyListingsView';
-import CustodianHistoryView from './components/CustodianHistoryView';
+const CustodianDashboard = lazy(() => import('./components/CustodianDashboard'));
+const AdminUsersView = lazy(() => import('./components/AdminUsersView'));
+const MyListingsView = lazy(() => import('./components/MyListingsView'));
+const CustodianHistoryView = lazy(() => import('./components/CustodianHistoryView'));
 import SpecsModal from './components/SpecsModal';
 import ReservationModal from './components/ReservationModal';
 import GuestPromptModal from './components/GuestPromptModal';
 import ForcePasswordChangeModal from './components/ForcePasswordChangeModal';
+import ProfileModal from './components/ProfileModal';
 import LoginPage from './components/LoginPage';
 import { CheckCircle2, Layers } from 'lucide-react';
 
 function MainLayout({ onNavigateToLogin }) {
     const { user, isAuthenticated, isCustodian, isAdmin } = useAuth();
     const [activeTab, setActiveTab] = useState('catalog');
+    const [profileModalOpen, setProfileModalOpen] = useState(false);
     const [specsItem, setSpecsItem] = useState(null);
     const [reserveItem, setReserveItem] = useState(null);
     const [guestPromptItem, setGuestPromptItem] = useState(null);
@@ -89,6 +92,7 @@ function MainLayout({ onNavigateToLogin }) {
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
                 onNavigateToLogin={onNavigateToLogin}
+                onOpenProfile={() => setProfileModalOpen(true)}
             />
 
             {/* Main Content Area Container */}
@@ -120,34 +124,36 @@ function MainLayout({ onNavigateToLogin }) {
                         />
                     </div>
 
-                    {isAuthenticated && user?.is_peer_lender && (
-                        <div className={activeTab === 'my-listings' ? 'block' : 'hidden'}>
-                            <MyListingsView />
-                        </div>
-                    )}
+                    <Suspense fallback={<div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400">Loading view...</div>}>
+                        {isAuthenticated && user?.is_peer_lender && (
+                            <div className={activeTab === 'my-listings' ? 'block' : 'hidden'}>
+                                <MyListingsView />
+                            </div>
+                        )}
 
-                    {isAuthenticated && isCustodian && (
-                        <div className={activeTab === 'custodian' ? 'block' : 'hidden'}>
-                            <CustodianDashboard
-                                refreshKey={refreshKey}
-                                onRefreshTrigger={() => setRefreshKey((prev) => prev + 1)}
-                            />
-                        </div>
-                    )}
+                        {isAuthenticated && isCustodian && (
+                            <div className={activeTab === 'custodian' ? 'block' : 'hidden'}>
+                                <CustodianDashboard
+                                    refreshKey={refreshKey}
+                                    onRefreshTrigger={() => setRefreshKey((prev) => prev + 1)}
+                                />
+                            </div>
+                        )}
 
-                    {isAuthenticated && isCustodian && (
-                        <div className={activeTab === 'custodian-history' ? 'block' : 'hidden'}>
-                            <CustodianHistoryView
-                                refreshKey={refreshKey}
-                            />
-                        </div>
-                    )}
+                        {isAuthenticated && isCustodian && (
+                            <div className={activeTab === 'custodian-history' ? 'block' : 'hidden'}>
+                                <CustodianHistoryView
+                                    refreshKey={refreshKey}
+                                />
+                            </div>
+                        )}
 
-                    {isAuthenticated && isAdmin && (
-                        <div className={activeTab === 'admin-users' ? 'block' : 'hidden'}>
-                            <AdminUsersView />
-                        </div>
-                    )}
+                        {isAuthenticated && isAdmin && (
+                            <div className={activeTab === 'admin-users' ? 'block' : 'hidden'}>
+                                <AdminUsersView />
+                            </div>
+                        )}
+                    </Suspense>
                 </main>
 
                 {/* Flat Clean University Footer */}
@@ -199,6 +205,12 @@ function MainLayout({ onNavigateToLogin }) {
                     onSuccess={(msg) => showToast(msg)}
                 />
             )}
+
+            {/* Account Profile Modal */}
+            <ProfileModal
+                open={profileModalOpen}
+                onClose={() => setProfileModalOpen(false)}
+            />
         </div>
     );
 }
@@ -280,7 +292,9 @@ export default function MainApp() {
         <ErrorBoundary>
             <ThemeProvider>
                 <AuthProvider>
-                    <AppContent />
+                    <FeedbackProvider>
+                        <AppContent />
+                    </FeedbackProvider>
                 </AuthProvider>
             </ThemeProvider>
         </ErrorBoundary>
