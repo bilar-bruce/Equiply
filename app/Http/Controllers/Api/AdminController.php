@@ -135,7 +135,13 @@ class AdminController extends Controller
             'verification_code' => Hash::make($verificationCode),
         ]);
 
-        Mail::to($user->email)->send(new StudentEnrolledWelcomeMail($user, $plainPassword, $verificationCode));
+        try {
+            Mail::to($user->email)->send(new StudentEnrolledWelcomeMail($user, $plainPassword, $verificationCode));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Enrollment welcome mail failed: ' . $e->getMessage(), [
+                'recipient' => $user->email,
+            ]);
+        }
 
         return response()->json([
             'message' => "Campus account [{$user->id_number}] successfully enrolled.",

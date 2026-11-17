@@ -205,7 +205,17 @@ class AuthController extends Controller
         $user->password_reset_expires_at = now()->addMinutes($expiresInMinutes);
         $user->save();
 
-        Mail::to($user->email)->send(new PasswordResetOtpMail($user, $otpCode, $expiresInMinutes));
+        try {
+            Mail::to($user->email)->send(new PasswordResetOtpMail($user, $otpCode, $expiresInMinutes));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Password reset OTP mail failed: ' . $e->getMessage(), [
+                'recipient' => $user->email,
+            ]);
+
+            return response()->json([
+                'message' => 'Email delivery is currently unavailable. Please contact the facility custodian or administrator to reset your password.',
+            ], 503);
+        }
 
         return response()->json([
             'message' => 'A 6-digit password reset code has been sent to your registered campus email.',

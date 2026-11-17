@@ -259,7 +259,13 @@ class PeerLenderController extends Controller
 
         $owner = $item->owner ?? ($item->owner_user_id ? User::find($item->owner_user_id) : null);
         if ($owner?->email) {
-            Mail::to($owner->email)->send(new PeerIntakeVerifiedMail($item, $owner));
+            try {
+                Mail::to($owner->email)->send(new PeerIntakeVerifiedMail($item, $owner));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Peer intake verification mail failed: ' . $e->getMessage(), [
+                    'recipient' => $owner->email,
+                ]);
+            }
         }
 
         return response()->json([

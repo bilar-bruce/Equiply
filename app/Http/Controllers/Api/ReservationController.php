@@ -16,8 +16,10 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
@@ -190,9 +192,7 @@ class ReservationController extends Controller
         $rental->load(['item', 'borrower']);
         Cache::forget('equiply_category_counts');
 
-        if ($rental->borrower?->email) {
-            Mail::to($rental->borrower->email)->send(new ReservationConfirmedMail($rental));
-        }
+        $this->sendMailSafely($rental->borrower?->email, new ReservationConfirmedMail($rental));
 
         return (new RentalResource($rental))
             ->response()
@@ -235,16 +235,12 @@ class ReservationController extends Controller
         $rental->load(['item', 'borrower', 'custodian']);
         Cache::forget('equiply_category_counts');
 
-        if ($rental->borrower?->email) {
-            Mail::to($rental->borrower->email)->send(new EquipmentDispatchedMail($rental));
-        }
+        $this->sendMailSafely($rental->borrower?->email, new EquipmentDispatchedMail($rental));
 
         if (($rental->item?->owner_type ?? $rental->item_snapshot['owner_type'] ?? null) === 'student') {
             $ownerId = $rental->item?->owner_user_id ?? $rental->item_snapshot['owner_id'] ?? null;
             $owner = $ownerId ? User::find($ownerId) : null;
-            if ($owner?->email) {
-                Mail::to($owner->email)->send(new PeerItemBorrowedMail($rental, $owner));
-            }
+            $this->sendMailSafely($owner?->email, new PeerItemBorrowedMail($rental, $owner));
         }
 
         return response()->json([
@@ -347,16 +343,12 @@ class ReservationController extends Controller
         $rental->load(['item', 'borrower', 'custodian']);
         Cache::forget('equiply_category_counts');
 
-        if ($rental->borrower?->email) {
-            Mail::to($rental->borrower->email)->send(new EquipmentReturnedReceiptMail($rental));
-        }
+        $this->sendMailSafely($rental->borrower?->email, new EquipmentReturnedReceiptMail($rental));
 
         if (($rental->item?->owner_type ?? $rental->item_snapshot['owner_type'] ?? null) === 'student') {
             $ownerId = $rental->item?->owner_user_id ?? $rental->item_snapshot['owner_id'] ?? null;
             $owner = $ownerId ? User::find($ownerId) : null;
-            if ($owner?->email) {
-                Mail::to($owner->email)->send(new PeerItemReturnedMail($rental, $owner));
-            }
+            $this->sendMailSafely($owner?->email, new PeerItemReturnedMail($rental, $owner));
         }
 
         return response()->json([
@@ -403,5 +395,25 @@ class ReservationController extends Controller
             'message' => 'Reservation successfully cancelled.',
             'rental' => new RentalResource($rental),
         ]);
+    }
+
+    /**
+     * Send transactional mail without blocking reservation/checkout/checkin flows
+     * if the SMTP server is unreachable or rejects credentials.
+     */
+    private function sendMailSafely(?string $email, Mailable $mailable): void
+    {
+        if (!$email) {
+            return;
+        }
+
+        try {
+            Mail::to($email)->send($mailable);
+        } catch (\Throwable $e) {
+            Log::warning('Reservation mail delivery failed: ' . $e->getMessage(), [
+                'recipient' => $email,
+                'mailable' => get_class($mailable),
+            ]);
+        }
     }
 }
