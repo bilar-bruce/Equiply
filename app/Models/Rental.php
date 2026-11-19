@@ -92,9 +92,14 @@ class Rental extends Model
 
     /**
      * Auto-expire unclaimed pending/reserved reservations past their 30-minute pickup window.
+     * Throttled to once every 10 seconds to avoid redundant cloud MongoDB sweeps on concurrent requests.
      */
     public static function expireUnclaimedReservations(): int
     {
+        if (! app()->runningUnitTests() && ! \Illuminate\Support\Facades\Cache::add('equiply_expiry_sweep_lock', true, 10)) {
+            return 0;
+        }
+
         $unclaimed = static::whereIn('status', ['pending', 'reserved'])->get();
         $expiredCount = 0;
         $now = now();

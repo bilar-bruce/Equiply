@@ -28,7 +28,7 @@ import {
     QrCode
 } from 'lucide-react';
 
-export default function CustodianDashboard({ onRefreshTrigger }) {
+export default function CustodianDashboard({ onRefreshTrigger, refreshKey = 0, isActive = true }) {
     const { user, isCustodian } = useAuth();
     const { showToast, confirm } = useFeedback();
     const [rentals, setRentals] = useState([]);
@@ -51,8 +51,10 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
     const [damageFee, setDamageFee] = useState('0');
     const [checkinNotes, setCheckinNotes] = useState('');
 
-    const fetchRentals = async () => {
-        setLoading(true);
+    const fetchRentals = async (silent = false) => {
+        if (!silent) {
+            setLoading(true);
+        }
         try {
             if (statusFilter === 'p2p-intake') {
                 const res = await itemsApi.list({ owner_type: 'student', availability_stat: 'pending_intake' });
@@ -75,9 +77,42 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
         }
     };
 
+    const dirtyRef = React.useRef(false);
+    const prevFiltersRef = React.useRef({ statusFilter, searchCode });
     useEffect(() => {
-        fetchRentals();
-    }, [statusFilter, searchCode]);
+        const filtersChanged =
+            prevFiltersRef.current.statusFilter !== statusFilter ||
+            prevFiltersRef.current.searchCode !== searchCode;
+        prevFiltersRef.current = { statusFilter, searchCode };
+        if (!isActive) {
+            dirtyRef.current = true;
+            return;
+        }
+        const isSilentRefresh = refreshKey > 0 && !filtersChanged;
+        fetchRentals(isSilentRefresh);
+    }, [statusFilter, searchCode, refreshKey]);
+
+    useEffect(() => {
+        if (isActive && dirtyRef.current) {
+            dirtyRef.current = false;
+            fetchRentals(rentals.length > 0);
+        }
+    }, [isActive]);
+
+    const applyUpdatedRental = (updatedRental) => {
+        if (!updatedRental) return;
+        const targetId = String(updatedRental.id || updatedRental._id);
+        setRentals((prev) => {
+            const exists = prev.some((r) => String(r.id || r._id) === targetId);
+            const next = exists
+                ? prev.map((r) => (String(r.id || r._id) === targetId ? updatedRental : r))
+                : [updatedRental, ...prev];
+            if (statusFilter !== 'all' && statusFilter !== 'p2p-intake' && statusFilter !== 'maintenance') {
+                return next.filter((r) => r.status === statusFilter);
+            }
+            return next;
+        });
+    };
 
     // Verify & Accept P2P Physical Intake
     const handleVerifyIntake = async (itemId) => {
@@ -90,9 +125,8 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
         setActionLoading(true);
         try {
             await peerLenderApi.verifyIntake(itemId);
+            setP2pIntakeItems((prev) => prev.filter((item) => String(item.id || item._id) !== String(itemId)));
             showToast({ type: 'success', title: 'Intake Verified', message: 'Equipment verified and activated in campus catalog.' });
-            await fetchRentals();
-            if (onRefreshTrigger) onRefreshTrigger();
         } catch (err) {
             showToast({ type: 'error', title: 'Verification Failed', message: err.response?.data?.message || 'Intake verification failed.' });
         } finally {
@@ -110,10 +144,9 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
         if (!ok) return;
         setActionLoading(true);
         try {
-            await peerLenderApi.settlePayout(rentalId);
+            const res = await peerLenderApi.settlePayout(rentalId);
+            applyUpdatedRental(res?.rental);
             showToast({ type: 'success', title: 'Payout Settled', message: 'Peer lender earnings marked as settled.' });
-            await fetchRentals();
-            if (onRefreshTrigger) onRefreshTrigger();
         } catch (err) {
             showToast({ type: 'error', title: 'Payout Failed', message: err.response?.data?.message || 'Payout settlement failed.' });
         } finally {
@@ -131,10 +164,9 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
         if (!ok) return;
         setActionLoading(true);
         try {
-            await reservationsApi.checkout(rentalId);
+            const res = await reservationsApi.checkout(rentalId);
+            applyUpdatedRental(res?.rental);
             showToast({ type: 'success', title: 'Equipment Dispatched', message: 'Handover logged and loan is now active.' });
-            await fetchRentals();
-            if (onRefreshTrigger) onRefreshTrigger();
         } catch (err) {
             showToast({ type: 'error', title: 'Checkout Failed', message: err.response?.data?.message || 'Checkout failed.' });
         } finally {
@@ -149,7 +181,7 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
         setActionLoading(true);
 
         try {
-            await reservationsApi.checkin(checkinModalRental.id || checkinModalRental._id, {
+            const res = await reservationsApi.checkin(checkinModalRental.id || checkinModalRental._id, {
                 condition_in: conditionIn,
                 mark_maintenance: markMaintenance,
                 collateral_status: collateralStatus,
@@ -158,9 +190,8 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
             });
 
             setCheckinModalRental(null);
+            applyUpdatedRental(res?.rental);
             showToast({ type: 'success', title: 'Return Checked In', message: 'Equipment return and collateral disposition recorded.' });
-            await fetchRentals();
-            if (onRefreshTrigger) onRefreshTrigger();
         } catch (err) {
             showToast({ type: 'error', title: 'Check-In Failed', message: err.response?.data?.message || 'Return check-in failed.' });
         } finally {
@@ -175,14 +206,14 @@ export default function CustodianDashboard({ onRefreshTrigger }) {
         setActionLoading(true);
 
         try {
-            await itemsApi.resolveMaintenance(resolveModalItem.id || resolveModalItem._id, {
+            const targetId = resolveModalItem.id || resolveModalItem._id;
+            await itemsApi.resolveMaintenance(targetId, {
                 repair_notes: repairNotes,
             });
 
             setResolveModalItem(null);
+            setMaintenanceItems((prev) => prev.filter((item) => String(item.id || item._id) !== String(targetId)));
             showToast({ type: 'success', title: 'Maintenance Resolved', message: 'Equipment restored to active campus catalog.' });
-            await fetchRentals();
-            if (onRefreshTrigger) onRefreshTrigger();
         } catch (err) {
             showToast({ type: 'error', title: 'Resolution Failed', message: err.response?.data?.message || 'Maintenance resolution failed.' });
         } finally {

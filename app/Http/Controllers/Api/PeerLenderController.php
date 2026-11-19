@@ -2,12 +2,17 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\CatalogUpdated;
+use App\Events\CustodianOperationsUpdated;
+use App\Events\UserNotificationBroadcast;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ItemResource;
 use App\Mail\PeerIntakeVerifiedMail;
 use App\Models\Item;
 use App\Models\Rental;
 use App\Models\User;
+use App\Support\AsyncMailer;
+use App\Support\RealtimeBroadcaster;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -136,6 +141,14 @@ class PeerLenderController extends Controller
 
         Cache::forget('equiply_category_counts');
 
+        RealtimeBroadcaster::dispatch(new CustodianOperationsUpdated(
+            action: 'p2p_intake_requested',
+            title: 'New P2P Intake Listing',
+            message: "{$user->name} registered {$item->name} ({$item->item_code}) for desk intake.",
+            entityId: (string) $item->_id,
+            actorId: (string) $user->_id,
+        ));
+
         return response()->json([
             'message' => "Equipment listing [{$item->item_code}] registered. Please bring the item to the Facility Operations Desk for intake inspection.",
             'item' => new ItemResource($item),
@@ -187,6 +200,14 @@ class PeerLenderController extends Controller
         $item->save();
         Cache::forget('equiply_category_counts');
 
+        RealtimeBroadcaster::dispatch(new CatalogUpdated(
+            action: 'item_updated',
+            itemId: (string) $item->_id,
+            itemCode: $item->item_code,
+            itemName: $item->name,
+            availabilityStat: $item->availability_stat,
+        ));
+
         return response()->json([
             'message' => "Listing [{$item->item_code}] successfully updated.",
             'item' => new ItemResource($item),
@@ -225,6 +246,21 @@ class PeerLenderController extends Controller
         $item->save();
         Cache::forget('equiply_category_counts');
 
+        RealtimeBroadcaster::dispatch(new CatalogUpdated(
+            action: $item->availability_stat === 'withdrawn' ? 'item_withdrawn' : 'item_restored',
+            itemId: (string) $item->_id,
+            itemCode: $item->item_code,
+            itemName: $item->name,
+            availabilityStat: $item->availability_stat,
+        ));
+        RealtimeBroadcaster::dispatch(new CustodianOperationsUpdated(
+            action: $item->availability_stat === 'withdrawn' ? 'p2p_withdrawn' : 'p2p_intake_requested',
+            title: $item->availability_stat === 'withdrawn' ? 'P2P Listing Withdrawn' : 'P2P Item Re-queued for Intake',
+            message: "{$item->name} ({$item->item_code}) was {$action} by {$user->name}.",
+            entityId: (string) $item->_id,
+            actorId: (string) $user->_id,
+        ));
+
         return response()->json([
             'message' => "Equipment [{$item->item_code}] {$action}.",
             'item' => new ItemResource($item),
@@ -258,14 +294,32 @@ class PeerLenderController extends Controller
         Cache::forget('equiply_category_counts');
 
         $owner = $item->owner ?? ($item->owner_user_id ? User::find($item->owner_user_id) : null);
-        if ($owner?->email) {
-            try {
-                Mail::to($owner->email)->send(new PeerIntakeVerifiedMail($item, $owner));
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning('Peer intake verification mail failed: ' . $e->getMessage(), [
-                    'recipient' => $owner->email,
-                ]);
-            }
+        AsyncMailer::send($owner?->email, new PeerIntakeVerifiedMail($item, $owner));
+
+        RealtimeBroadcaster::dispatch(new CatalogUpdated(
+            action: 'intake_verified',
+            itemId: (string) $item->_id,
+            itemCode: $item->item_code,
+            itemName: $item->name,
+            availabilityStat: $item->availability_stat,
+        ));
+        RealtimeBroadcaster::dispatch(new CustodianOperationsUpdated(
+            action: 'intake_verified',
+            title: 'P2P Intake Verified',
+            message: "{$item->name} ({$item->item_code}) was verified and activated in catalog.",
+            entityId: (string) $item->_id,
+            actorId: (string) $currentUser->_id,
+        ));
+        if ($item->owner_user_id) {
+            RealtimeBroadcaster::dispatch(new UserNotificationBroadcast(
+                userId: (string) $item->owner_user_id,
+                action: 'intake_verified',
+                scope: 'listings',
+                title: 'Intake Verified',
+                message: "Your listing {$item->name} ({$item->item_code}) is now active in the campus catalog!",
+                tone: 'success',
+                entityId: (string) $item->_id,
+            ));
         }
 
         return response()->json([
@@ -318,6 +372,28 @@ class PeerLenderController extends Controller
 
         $rental->financials = $financials;
         $rental->save();
+
+        $ownerId = $rental->item?->owner_user_id ?? ($rental->item_snapshot['owner_id'] ?? null);
+        $itemName = $rental->item?->name ?? ($rental->item_snapshot['name'] ?? 'Peer Equipment');
+
+        RealtimeBroadcaster::dispatch(new CustodianOperationsUpdated(
+            action: 'payout_settled',
+            title: 'P2P Payout Settled',
+            message: "Payout for {$rental->rental_code} ({$itemName}) was settled by {$custodian->name}.",
+            entityId: (string) $rental->_id,
+            actorId: (string) $custodian->_id,
+        ));
+        if ($ownerId) {
+            RealtimeBroadcaster::dispatch(new UserNotificationBroadcast(
+                userId: (string) $ownerId,
+                action: 'payout_settled',
+                scope: 'listings',
+                title: 'Payout Settled',
+                message: "Your peer lending payout for {$itemName} ({$rental->rental_code}) has been settled.",
+                tone: 'success',
+                entityId: (string) $rental->_id,
+            ));
+        }
 
         return response()->json([
             'message' => "Peer lender payout settled for rental [{$rental->rental_code}].",

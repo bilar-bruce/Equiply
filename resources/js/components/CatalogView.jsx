@@ -124,7 +124,7 @@ function StatusBadge({ status }) {
     );
 }
 
-export default function CatalogView({ onSelectSpecs, onOpenReserve, refreshKey }) {
+export default function CatalogView({ onSelectSpecs, onOpenReserve, refreshKey, isActive = true, catalogEvent = null }) {
     const { user, isAuthenticated, isCustodian, isAdmin } = useAuth();
     const isStaff = isCustodian || isAdmin;
     const [items, setItems] = useState([]);
@@ -190,18 +190,112 @@ export default function CatalogView({ onSelectSpecs, onOpenReserve, refreshKey }
         fetchItems(true);
     };
 
-    // Category metadata only fetches on initial mount and when inventory updates
+    const dirtyRef = useRef(false);
+    const hasLoadedRef = useRef(false);
+
+    // Category metadata only fetches on initial mount and explicit refreshKey updates (when active)
     useEffect(() => {
+        if (!isActive) {
+            dirtyRef.current = true;
+            return;
+        }
         fetchCategories();
     }, [refreshKey]);
 
-    // Debounced items fetch for search/filters
+    // Debounced items fetch for search/filters (deferred while tab is hidden)
     useEffect(() => {
+        if (!isActive) {
+            dirtyRef.current = true;
+            return undefined;
+        }
         const timeoutId = setTimeout(() => {
+            hasLoadedRef.current = true;
             fetchItems();
         }, 150);
         return () => clearTimeout(timeoutId);
     }, [searchQuery, selectedCategory, selectedAvailability, selectedOwnerType, refreshKey]);
+
+    // Flush deferred refresh once when switching back to Catalog tab
+    useEffect(() => {
+        if (isActive && dirtyRef.current) {
+            dirtyRef.current = false;
+            fetchCategories();
+            fetchItems(false);
+        }
+    }, [isActive]);
+
+    // Instant 0ms in-memory patch for Reverb status transitions; silent refetch only for structural changes
+    useEffect(() => {
+        if (!catalogEvent || !hasLoadedRef.current) return;
+
+        const statusOnlyActions = new Set([
+            'reserved',
+            'checked_out',
+            'checked_in',
+            'cancelled',
+            'maintenance_resolved',
+        ]);
+
+        if (statusOnlyActions.has(catalogEvent.action) && catalogEvent.item_id && catalogEvent.availability_stat) {
+            const targetId = String(catalogEvent.item_id);
+            const nextStatus = catalogEvent.availability_stat;
+            let previousStatus = null;
+            let affectedCategory = null;
+
+            setItems((prev) => {
+                const matched = prev.find((i) => String(i.id || i._id) === targetId);
+                if (!matched || matched.availability_stat === nextStatus) {
+                    return prev;
+                }
+                previousStatus = matched.availability_stat;
+                affectedCategory = matched.category;
+
+                const updated = prev.map((i) =>
+                    String(i.id || i._id) === targetId
+                        ? { ...i, availability_stat: nextStatus }
+                        : i
+                );
+
+                if (selectedAvailability !== 'all') {
+                    return updated.filter((i) => i.availability_stat === selectedAvailability);
+                }
+                return updated;
+            });
+
+            if (previousStatus && previousStatus !== nextStatus) {
+                const delta =
+                    nextStatus === 'available' ? 1 : previousStatus === 'available' ? -1 : 0;
+
+                if (delta !== 0) {
+                    setCategoryMeta((prev) => ({
+                        ...prev,
+                        total_available: Math.max(0, (prev.total_available || 0) + delta),
+                    }));
+                    if (affectedCategory) {
+                        setCategoryStats((prev) =>
+                            prev.map((cat) =>
+                                cat.name === affectedCategory
+                                    ? {
+                                          ...cat,
+                                          available_items: Math.max(0, (cat.available_items || 0) + delta),
+                                      }
+                                    : cat
+                            )
+                        );
+                    }
+                }
+            }
+            return;
+        }
+
+        // Structural change (new item, edited item, withdrawn, intake verified)
+        if (!isActive) {
+            dirtyRef.current = true;
+            return;
+        }
+        fetchCategories();
+        fetchItems(false);
+    }, [catalogEvent]);
 
     const categoriesList = [
         { id: 'all', label: 'All Equipment', icon: Layers },

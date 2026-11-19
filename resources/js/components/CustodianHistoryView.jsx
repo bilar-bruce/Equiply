@@ -19,15 +19,19 @@ import {
     RotateCcw
 } from 'lucide-react';
 
-export default function CustodianHistoryView({ refreshKey }) {
+export default function CustodianHistoryView({ refreshKey, isActive = true }) {
     const { user, isCustodian } = useAuth();
     const [historyRentals, setHistoryRentals] = useState([]);
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
 
-    const fetchHistory = async () => {
-        setLoading(true);
+    const dirtyRef = React.useRef(false);
+
+    const fetchHistory = async (silent = false) => {
+        if (!silent) {
+            setLoading(true);
+        }
         try {
             // Retrieve all rental records
             const res = await reservationsApi.list({ per_page: 100 });
@@ -45,8 +49,19 @@ export default function CustodianHistoryView({ refreshKey }) {
     };
 
     useEffect(() => {
-        fetchHistory();
+        if (!isActive) {
+            dirtyRef.current = true;
+            return;
+        }
+        fetchHistory(refreshKey > 0 && historyRentals.length > 0);
     }, [refreshKey]);
+
+    useEffect(() => {
+        if (isActive && dirtyRef.current) {
+            dirtyRef.current = false;
+            fetchHistory(historyRentals.length > 0);
+        }
+    }, [isActive]);
 
     // Filter by status tab & search term
     const filteredRentals = historyRentals.filter((rental) => {

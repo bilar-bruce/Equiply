@@ -1,7 +1,8 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
-import { FeedbackProvider } from './context/FeedbackContext';
+import { FeedbackProvider, useFeedback } from './context/FeedbackContext';
+import { useEquiplyRealtime } from './hooks/useEquiplyRealtime';
 import Sidebar from './components/Sidebar';
 import CatalogView from './components/CatalogView';
 import MyRentalsView from './components/MyRentalsView';
@@ -18,14 +19,79 @@ import LoginPage from './components/LoginPage';
 import { CheckCircle2, Layers } from 'lucide-react';
 
 function MainLayout({ onNavigateToLogin }) {
-    const { user, isAuthenticated, isCustodian, isAdmin } = useAuth();
+    const { user, token, isAuthenticated, isCustodian, isAdmin } = useAuth();
+    const { showToast: pushFeedbackToast } = useFeedback();
     const [activeTab, setActiveTab] = useState('catalog');
+    const [visitedTabs, setVisitedTabs] = useState(() => new Set(['catalog']));
     const [profileModalOpen, setProfileModalOpen] = useState(false);
     const [specsItem, setSpecsItem] = useState(null);
     const [reserveItem, setReserveItem] = useState(null);
     const [guestPromptItem, setGuestPromptItem] = useState(null);
-    const [refreshKey, setRefreshKey] = useState(0);
+    const [catalogRefreshKey, setCatalogRefreshKey] = useState(0);
+    const [catalogEvent, setCatalogEvent] = useState(null);
+    const [rentalsRefreshKey, setRentalsRefreshKey] = useState(0);
+    const [listingsRefreshKey, setListingsRefreshKey] = useState(0);
+    const [custodianRefreshKey, setCustodianRefreshKey] = useState(0);
+    const [custodianHistoryRefreshKey, setCustodianHistoryRefreshKey] = useState(0);
     const [toastMessage, setToastMessage] = useState(null);
+
+    const handleTabChange = useCallback((nextTab) => {
+        setActiveTab(nextTab);
+        setVisitedTabs((prev) => {
+            if (prev.has(nextTab)) return prev;
+            const next = new Set(prev);
+            next.add(nextTab);
+            return next;
+        });
+    }, []);
+
+    const triggerAllViewsRefresh = useCallback(() => {
+        setCatalogRefreshKey((prev) => prev + 1);
+        setRentalsRefreshKey((prev) => prev + 1);
+        setListingsRefreshKey((prev) => prev + 1);
+        setCustodianRefreshKey((prev) => prev + 1);
+        setCustodianHistoryRefreshKey((prev) => prev + 1);
+    }, []);
+
+    useEquiplyRealtime({
+        user,
+        token,
+        isAuthenticated,
+        isCustodian,
+        isAdmin,
+        onCatalogUpdate: useCallback((payload) => {
+            setCatalogEvent({ ...(payload || {}), _ts: Date.now() });
+        }, []),
+        onCustodianUpdate: useCallback((payload) => {
+            setCustodianHistoryRefreshKey((prev) => prev + 1);
+            if (payload?.actor_id && user?.id && String(payload.actor_id) === String(user.id)) {
+                return;
+            }
+            setCustodianRefreshKey((prev) => prev + 1);
+            if (payload?.message) {
+                pushFeedbackToast({
+                    type: 'info',
+                    title: payload.title || 'Facility Desk Update',
+                    message: payload.message,
+                });
+            }
+        }, [pushFeedbackToast, user?.id]),
+        onUserUpdate: useCallback((payload) => {
+            if (payload?.scope === 'rentals' || payload?.scope === 'both') {
+                setRentalsRefreshKey((prev) => prev + 1);
+            }
+            if (payload?.scope === 'listings' || payload?.scope === 'both') {
+                setListingsRefreshKey((prev) => prev + 1);
+            }
+            if (payload?.message) {
+                pushFeedbackToast({
+                    type: payload.tone || 'info',
+                    title: payload.title || 'Equiply Live Update',
+                    message: payload.message,
+                });
+            }
+        }, [pushFeedbackToast]),
+    });
 
     // Guard My Borrowings tab strictly to guests and student borrowers (staff do not borrow)
     useEffect(() => {
@@ -81,7 +147,17 @@ function MainLayout({ onNavigateToLogin }) {
     };
 
     const handleReservationSuccess = (rental) => {
-        setRefreshKey((prev) => prev + 1);
+        if (rental?.item_id) {
+            setCatalogEvent({
+                action: 'reserved',
+                item_id: String(rental.item_id),
+                availability_stat: 'reserved',
+                _ts: Date.now(),
+            });
+        } else {
+            setCatalogRefreshKey((prev) => prev + 1);
+        }
+        setRentalsRefreshKey((prev) => prev + 1);
         showToast(`Reservation [${rental.rental_code}] confirmed successfully!`);
     };
 
@@ -90,7 +166,7 @@ function MainLayout({ onNavigateToLogin }) {
             {/* Left-Hand Sidebar Navigation */}
             <Sidebar
                 activeTab={activeTab}
-                setActiveTab={setActiveTab}
+                setActiveTab={handleTabChange}
                 onNavigateToLogin={onNavigateToLogin}
                 onOpenProfile={() => setProfileModalOpen(true)}
             />
@@ -105,50 +181,60 @@ function MainLayout({ onNavigateToLogin }) {
                     </div>
                 )}
 
-                {/* Primary Route Views - Persistent Views with CSS Display for 0ms Tab Switching */}
+                {/* Primary Route Views - Lazy-Mounted on First Visit, Persistent Thereafter */}
                 <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
                     <div className={activeTab === 'catalog' ? 'block' : 'hidden'}>
                         <CatalogView
-                            refreshKey={refreshKey}
+                            refreshKey={catalogRefreshKey}
+                            catalogEvent={catalogEvent}
+                            isActive={activeTab === 'catalog'}
                             onSelectSpecs={(item) => setSpecsItem(item)}
                             onOpenReserve={handleOpenReserve}
                             onOpenAuthModal={onNavigateToLogin}
                         />
                     </div>
 
-                    <div className={activeTab === 'my-rentals' ? 'block' : 'hidden'}>
-                        <MyRentalsView
-                            refreshKey={refreshKey}
-                            onRefreshTrigger={() => setRefreshKey((prev) => prev + 1)}
-                            onNavigateToLogin={onNavigateToLogin}
-                        />
-                    </div>
+                    {visitedTabs.has('my-rentals') && (
+                        <div className={activeTab === 'my-rentals' ? 'block' : 'hidden'}>
+                            <MyRentalsView
+                                refreshKey={rentalsRefreshKey}
+                                isActive={activeTab === 'my-rentals'}
+                                onRefreshTrigger={triggerAllViewsRefresh}
+                                onNavigateToLogin={onNavigateToLogin}
+                            />
+                        </div>
+                    )}
 
                     <Suspense fallback={<div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400">Loading view...</div>}>
-                        {isAuthenticated && user?.is_peer_lender && (
+                        {isAuthenticated && user?.is_peer_lender && visitedTabs.has('my-listings') && (
                             <div className={activeTab === 'my-listings' ? 'block' : 'hidden'}>
-                                <MyListingsView />
+                                <MyListingsView
+                                    refreshKey={listingsRefreshKey}
+                                    isActive={activeTab === 'my-listings'}
+                                />
                             </div>
                         )}
 
-                        {isAuthenticated && isCustodian && (
+                        {isAuthenticated && isCustodian && visitedTabs.has('custodian') && (
                             <div className={activeTab === 'custodian' ? 'block' : 'hidden'}>
                                 <CustodianDashboard
-                                    refreshKey={refreshKey}
-                                    onRefreshTrigger={() => setRefreshKey((prev) => prev + 1)}
+                                    refreshKey={custodianRefreshKey}
+                                    isActive={activeTab === 'custodian'}
+                                    onRefreshTrigger={triggerAllViewsRefresh}
                                 />
                             </div>
                         )}
 
-                        {isAuthenticated && isCustodian && (
+                        {isAuthenticated && isCustodian && visitedTabs.has('custodian-history') && (
                             <div className={activeTab === 'custodian-history' ? 'block' : 'hidden'}>
                                 <CustodianHistoryView
-                                    refreshKey={refreshKey}
+                                    refreshKey={custodianHistoryRefreshKey}
+                                    isActive={activeTab === 'custodian-history'}
                                 />
                             </div>
                         )}
 
-                        {isAuthenticated && isAdmin && (
+                        {isAuthenticated && isAdmin && visitedTabs.has('admin-users') && (
                             <div className={activeTab === 'admin-users' ? 'block' : 'hidden'}>
                                 <AdminUsersView />
                             </div>

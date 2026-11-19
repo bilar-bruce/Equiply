@@ -50,6 +50,17 @@ return [
             'transaction_mode' => 'DEFERRED',
         ],
 
+        'sqlite_queue' => [
+            'driver' => 'sqlite',
+            'database' => env('QUEUE_SQLITE_PATH', database_path('queue.sqlite')),
+            'prefix' => '',
+            'foreign_key_constraints' => false,
+            'busy_timeout' => 5000,
+            'journal_mode' => 'WAL',
+            'synchronous' => 'NORMAL',
+            'transaction_mode' => 'IMMEDIATE',
+        ],
+
         'mysql' => [
             'driver' => 'mysql',
             'url' => env('DB_URL'),

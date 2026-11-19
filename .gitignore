@@ -18,6 +18,7 @@
 /docs/TASKS.md
 /docs/superpowers
 /auth.json
+/database/queue.sqlite*
 /node_modules
 /public/build
 /public/hot

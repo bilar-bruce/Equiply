@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\CatalogUpdated;
+use App\Events\CustodianOperationsUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ItemResource;
 use App\Models\Item;
 use App\Models\Rental;
+use App\Support\RealtimeBroadcaster;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -185,6 +188,14 @@ class ItemController extends Controller
 
         Cache::forget('equiply_category_counts');
 
+        RealtimeBroadcaster::dispatch(new CatalogUpdated(
+            action: 'item_created',
+            itemId: (string) $item->_id,
+            itemCode: $item->item_code,
+            itemName: $item->name,
+            availabilityStat: $item->availability_stat,
+        ));
+
         return (new ItemResource($item))
             ->response()
             ->setStatusCode(201);
@@ -224,6 +235,21 @@ class ItemController extends Controller
         $item->save();
 
         Cache::forget('equiply_category_counts');
+
+        RealtimeBroadcaster::dispatch(new CatalogUpdated(
+            action: 'maintenance_resolved',
+            itemId: (string) $item->_id,
+            itemCode: $item->item_code,
+            itemName: $item->name,
+            availabilityStat: $item->availability_stat,
+        ));
+        RealtimeBroadcaster::dispatch(new CustodianOperationsUpdated(
+            action: 'maintenance_resolved',
+            title: 'Maintenance Resolved',
+            message: "{$item->name} ({$item->item_code}) was restored to the active catalog.",
+            entityId: (string) $item->_id,
+            actorId: (string) $user->_id,
+        ));
 
         return response()->json([
             'message' => "Equipment [{$item->item_code}] maintenance resolved and restored to active catalog.",

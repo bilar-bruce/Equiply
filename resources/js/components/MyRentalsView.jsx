@@ -16,7 +16,7 @@ import {
     QrCode
 } from 'lucide-react';
 
-export default function MyRentalsView({ onRefreshTrigger, onNavigateToLogin, onOpenAuthModal, refreshKey }) {
+export default function MyRentalsView({ onRefreshTrigger, onNavigateToLogin, onOpenAuthModal, refreshKey, isActive = true }) {
     const { user, isAuthenticated } = useAuth();
     const { showToast, confirm } = useFeedback();
     const [myRentals, setMyRentals] = useState([]);
@@ -32,9 +32,13 @@ export default function MyRentalsView({ onRefreshTrigger, onNavigateToLogin, onO
         return () => clearInterval(timer);
     }, []);
 
-    const fetchMyRentals = async () => {
+    const dirtyRef = React.useRef(false);
+
+    const fetchMyRentals = async (silent = false) => {
         if (!isAuthenticated) return;
-        setLoading(true);
+        if (!silent) {
+            setLoading(true);
+        }
         try {
             const res = await reservationsApi.list();
             setMyRentals(res.data || []);
@@ -46,12 +50,23 @@ export default function MyRentalsView({ onRefreshTrigger, onNavigateToLogin, onO
     };
 
     useEffect(() => {
-        if (isAuthenticated) {
-            fetchMyRentals();
-        } else {
+        if (!isAuthenticated) {
             setMyRentals([]);
+            return;
         }
+        if (!isActive) {
+            dirtyRef.current = true;
+            return;
+        }
+        fetchMyRentals(refreshKey > 0 && myRentals.length > 0);
     }, [user, isAuthenticated, refreshKey]);
+
+    useEffect(() => {
+        if (isActive && isAuthenticated && dirtyRef.current) {
+            dirtyRef.current = false;
+            fetchMyRentals(myRentals.length > 0);
+        }
+    }, [isActive, isAuthenticated]);
 
     if (!isAuthenticated) {
         return (
@@ -88,10 +103,15 @@ export default function MyRentalsView({ onRefreshTrigger, onNavigateToLogin, onO
         if (!ok) return;
         setCancellingId(id);
         try {
-            await reservationsApi.cancel(id);
+            const res = await reservationsApi.cancel(id);
+            const updated = res?.rental;
+            if (updated) {
+                const targetId = String(updated.id || updated._id);
+                setMyRentals((prev) => prev.map((r) => (String(r.id || r._id) === targetId ? updated : r)));
+            } else {
+                await fetchMyRentals(true);
+            }
             showToast({ type: 'success', title: 'Reservation Cancelled', message: 'Pending reservation cancelled and equipment released.' });
-            await fetchMyRentals();
-            if (onRefreshTrigger) onRefreshTrigger();
         } catch (err) {
             showToast({ type: 'error', title: 'Cancellation Failed', message: err.response?.data?.message || 'Cancellation failed.' });
         } finally {

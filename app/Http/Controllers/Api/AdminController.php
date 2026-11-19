@@ -6,10 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Mail\StudentEnrolledWelcomeMail;
 use App\Models\User;
+use App\Support\AsyncMailer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -56,17 +57,36 @@ class AdminController extends Controller
             $query->where('is_peer_lender', $isPeer);
         }
 
+        $hasFilters = $request->filled('search')
+            || ($request->filled('role') && in_array($request->input('role'), ['student', 'custodian', 'admin']))
+            || ($request->filled('status') && in_array($request->input('status'), ['active', 'suspended']))
+            || $request->has('is_peer_lender');
+
         $users = $query->orderBy('created_at', 'desc')->get();
 
-        // Calculate summary metrics across all users
-        $allUsers = User::all();
-        $metrics = [
-            'total_accounts' => $allUsers->count(),
-            'active_students' => $allUsers->where('role', 'student')->where('status', 'active')->count(),
-            'peer_lenders' => $allUsers->where('is_peer_lender', true)->count(),
-            'staff_members' => $allUsers->whereIn('role', ['custodian', 'admin'])->count(),
-            'suspended_accounts' => $allUsers->where('status', 'suspended')->count(),
-        ];
+        // Reuse already-fetched users when unfiltered; otherwise project minimal fields with short cache
+        if (! $hasFilters) {
+            $metrics = [
+                'total_accounts' => $users->count(),
+                'active_students' => $users->where('role', 'student')->where('status', 'active')->count(),
+                'peer_lenders' => $users->where('is_peer_lender', true)->count(),
+                'staff_members' => $users->whereIn('role', ['custodian', 'admin'])->count(),
+                'suspended_accounts' => $users->where('status', 'suspended')->count(),
+            ];
+            Cache::put('equiply_admin_user_metrics', $metrics, 15);
+        } else {
+            $metrics = Cache::remember('equiply_admin_user_metrics', 15, function () {
+                $summaryUsers = User::select(['role', 'status', 'is_peer_lender'])->get();
+
+                return [
+                    'total_accounts' => $summaryUsers->count(),
+                    'active_students' => $summaryUsers->where('role', 'student')->where('status', 'active')->count(),
+                    'peer_lenders' => $summaryUsers->where('is_peer_lender', true)->count(),
+                    'staff_members' => $summaryUsers->whereIn('role', ['custodian', 'admin'])->count(),
+                    'suspended_accounts' => $summaryUsers->where('status', 'suspended')->count(),
+                ];
+            });
+        }
 
         return response()->json([
             'metrics' => $metrics,
@@ -135,13 +155,8 @@ class AdminController extends Controller
             'verification_code' => Hash::make($verificationCode),
         ]);
 
-        try {
-            Mail::to($user->email)->send(new StudentEnrolledWelcomeMail($user, $plainPassword, $verificationCode));
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Enrollment welcome mail failed: ' . $e->getMessage(), [
-                'recipient' => $user->email,
-            ]);
-        }
+        Cache::forget('equiply_admin_user_metrics');
+        AsyncMailer::send($user->email, new StudentEnrolledWelcomeMail($user, $plainPassword, $verificationCode));
 
         return response()->json([
             'message' => "Campus account [{$user->id_number}] successfully enrolled.",
@@ -178,6 +193,7 @@ class AdminController extends Controller
 
         $user->status = $validated['status'];
         $user->save();
+        Cache::forget('equiply_admin_user_metrics');
 
         return response()->json([
             'message' => "Account [{$user->id_number}] status changed to {$user->status}.",
@@ -212,6 +228,7 @@ class AdminController extends Controller
 
         $user->is_peer_lender = $validated['is_peer_lender'];
         $user->save();
+        Cache::forget('equiply_admin_user_metrics');
 
         $action = $user->is_peer_lender ? 'granted' : 'revoked';
 
@@ -258,6 +275,7 @@ class AdminController extends Controller
 
         $user->role = $validated['role'];
         $user->save();
+        Cache::forget('equiply_admin_user_metrics');
 
         return response()->json([
             'message' => "Account [{$user->id_number}] role updated to {$user->role}.",

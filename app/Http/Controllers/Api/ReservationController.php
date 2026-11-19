@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\CatalogUpdated;
+use App\Events\CustodianOperationsUpdated;
+use App\Events\UserNotificationBroadcast;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\RentalResource;
 use App\Mail\EquipmentDispatchedMail;
@@ -12,6 +15,8 @@ use App\Mail\ReservationConfirmedMail;
 use App\Models\Item;
 use App\Models\Rental;
 use App\Models\User;
+use App\Support\AsyncMailer;
+use App\Support\RealtimeBroadcaster;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -194,6 +199,22 @@ class ReservationController extends Controller
 
         $this->sendMailSafely($rental->borrower?->email, new ReservationConfirmedMail($rental));
 
+        $itemName = $rental->item?->name ?? $rental->item_snapshot['name'] ?? 'Equipment';
+        RealtimeBroadcaster::dispatch(new CatalogUpdated(
+            action: 'reserved',
+            itemId: $rental->item_id ? (string) $rental->item_id : null,
+            itemCode: $rental->item?->item_code,
+            itemName: $itemName,
+            availabilityStat: 'reserved',
+        ));
+        RealtimeBroadcaster::dispatch(new CustodianOperationsUpdated(
+            action: 'reservation_created',
+            title: 'New Reservation Request',
+            message: "{$borrower->name} reserved {$itemName} ({$rental->rental_code}).",
+            entityId: (string) $rental->_id,
+            actorId: (string) $borrower->_id,
+        ));
+
         return (new RentalResource($rental))
             ->response()
             ->setStatusCode(201);
@@ -241,6 +262,46 @@ class ReservationController extends Controller
             $ownerId = $rental->item?->owner_user_id ?? $rental->item_snapshot['owner_id'] ?? null;
             $owner = $ownerId ? User::find($ownerId) : null;
             $this->sendMailSafely($owner?->email, new PeerItemBorrowedMail($rental, $owner));
+
+            if ($ownerId) {
+                $itemName = $rental->item?->name ?? $rental->item_snapshot['name'] ?? 'Your equipment';
+                RealtimeBroadcaster::dispatch(new UserNotificationBroadcast(
+                    userId: (string) $ownerId,
+                    action: 'peer_item_borrowed',
+                    scope: 'listings',
+                    title: 'Peer Item Borrowed',
+                    message: "{$itemName} ({$rental->rental_code}) has been checked out to a borrower.",
+                    tone: 'info',
+                    entityId: (string) $rental->_id,
+                ));
+            }
+        }
+
+        $itemName = $rental->item?->name ?? $rental->item_snapshot['name'] ?? 'Equipment';
+        RealtimeBroadcaster::dispatch(new CatalogUpdated(
+            action: 'checked_out',
+            itemId: $rental->item_id ? (string) $rental->item_id : null,
+            itemCode: $rental->item?->item_code,
+            itemName: $itemName,
+            availabilityStat: 'rented',
+        ));
+        RealtimeBroadcaster::dispatch(new CustodianOperationsUpdated(
+            action: 'rental_checked_out',
+            title: 'Equipment Checked Out',
+            message: "{$itemName} ({$rental->rental_code}) was dispatched by {$custodian->name}.",
+            entityId: (string) $rental->_id,
+            actorId: (string) $custodian->_id,
+        ));
+        if ($rental->borrower_id) {
+            RealtimeBroadcaster::dispatch(new UserNotificationBroadcast(
+                userId: (string) $rental->borrower_id,
+                action: 'rental_checked_out',
+                scope: 'rentals',
+                title: 'Equipment Dispatched',
+                message: "Your rental [{$rental->rental_code}] for {$itemName} is now active.",
+                tone: 'success',
+                entityId: (string) $rental->_id,
+            ));
         }
 
         return response()->json([
@@ -349,6 +410,46 @@ class ReservationController extends Controller
             $ownerId = $rental->item?->owner_user_id ?? $rental->item_snapshot['owner_id'] ?? null;
             $owner = $ownerId ? User::find($ownerId) : null;
             $this->sendMailSafely($owner?->email, new PeerItemReturnedMail($rental, $owner));
+
+            if ($ownerId) {
+                $itemName = $rental->item?->name ?? $rental->item_snapshot['name'] ?? 'Your equipment';
+                RealtimeBroadcaster::dispatch(new UserNotificationBroadcast(
+                    userId: (string) $ownerId,
+                    action: 'peer_item_returned',
+                    scope: 'listings',
+                    title: 'Peer Item Returned',
+                    message: "{$itemName} ({$rental->rental_code}) has been returned and checked in.",
+                    tone: 'success',
+                    entityId: (string) $rental->_id,
+                ));
+            }
+        }
+
+        $itemName = $rental->item?->name ?? $rental->item_snapshot['name'] ?? 'Equipment';
+        RealtimeBroadcaster::dispatch(new CatalogUpdated(
+            action: 'checked_in',
+            itemId: $rental->item_id ? (string) $rental->item_id : null,
+            itemCode: $rental->item?->item_code,
+            itemName: $itemName,
+            availabilityStat: $rental->item?->availability_stat ?? 'available',
+        ));
+        RealtimeBroadcaster::dispatch(new CustodianOperationsUpdated(
+            action: 'rental_checked_in',
+            title: 'Equipment Checked In',
+            message: "{$itemName} ({$rental->rental_code}) was checked in by {$custodian->name}.",
+            entityId: (string) $rental->_id,
+            actorId: (string) $custodian->_id,
+        ));
+        if ($rental->borrower_id) {
+            RealtimeBroadcaster::dispatch(new UserNotificationBroadcast(
+                userId: (string) $rental->borrower_id,
+                action: 'rental_checked_in',
+                scope: 'rentals',
+                title: 'Return Confirmed',
+                message: "Your return for {$itemName} ({$rental->rental_code}) has been recorded.",
+                tone: 'success',
+                entityId: (string) $rental->_id,
+            ));
         }
 
         return response()->json([
@@ -389,7 +490,35 @@ class ReservationController extends Controller
             return $rental;
         });
 
+        $rental->load(['item', 'borrower']);
         Cache::forget('equiply_category_counts');
+
+        $itemName = $rental->item?->name ?? $rental->item_snapshot['name'] ?? 'Equipment';
+        RealtimeBroadcaster::dispatch(new CatalogUpdated(
+            action: 'cancelled',
+            itemId: $rental->item_id ? (string) $rental->item_id : null,
+            itemCode: $rental->item?->item_code,
+            itemName: $itemName,
+            availabilityStat: $rental->item?->availability_stat ?? 'available',
+        ));
+        RealtimeBroadcaster::dispatch(new CustodianOperationsUpdated(
+            action: 'reservation_cancelled',
+            title: 'Reservation Cancelled',
+            message: "Reservation {$rental->rental_code} ({$itemName}) was cancelled.",
+            entityId: (string) $rental->_id,
+            actorId: (string) $user->_id,
+        ));
+        if ($rental->borrower_id && (string) $rental->borrower_id !== (string) $user->_id) {
+            RealtimeBroadcaster::dispatch(new UserNotificationBroadcast(
+                userId: (string) $rental->borrower_id,
+                action: 'reservation_cancelled',
+                scope: 'rentals',
+                title: 'Reservation Cancelled',
+                message: "Your reservation [{$rental->rental_code}] for {$itemName} was cancelled by the Facility Desk.",
+                tone: 'warning',
+                entityId: (string) $rental->_id,
+            ));
+        }
 
         return response()->json([
             'message' => 'Reservation successfully cancelled.',
@@ -398,22 +527,11 @@ class ReservationController extends Controller
     }
 
     /**
-     * Send transactional mail without blocking reservation/checkout/checkin flows
-     * if the SMTP server is unreachable or rejects credentials.
+     * Enqueue transactional mail onto the local background queue so remote
+     * Resend/SMTP latency never blocks reservation, checkout, or check-in speed.
      */
     private function sendMailSafely(?string $email, Mailable $mailable): void
     {
-        if (!$email) {
-            return;
-        }
-
-        try {
-            Mail::to($email)->send($mailable);
-        } catch (\Throwable $e) {
-            Log::warning('Reservation mail delivery failed: ' . $e->getMessage(), [
-                'recipient' => $email,
-                'mailable' => get_class($mailable),
-            ]);
-        }
+        AsyncMailer::send($email, $mailable);
     }
 }

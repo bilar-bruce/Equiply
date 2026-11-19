@@ -26,7 +26,7 @@ import {
     Shield
 } from 'lucide-react';
 
-export default function MyListingsView() {
+export default function MyListingsView({ refreshKey = 0, isActive = true }) {
     const { user } = useAuth();
     const { showToast: pushToast, confirm } = useFeedback();
 
@@ -67,8 +67,12 @@ export default function MyListingsView() {
         });
     };
 
-    const fetchListings = async () => {
-        setLoading(true);
+    const dirtyRef = React.useRef(false);
+
+    const fetchListings = async (silent = false) => {
+        if (!silent) {
+            setLoading(true);
+        }
         try {
             const res = await peerLenderApi.getListings();
             setItems(res.items || []);
@@ -85,8 +89,19 @@ export default function MyListingsView() {
     };
 
     useEffect(() => {
-        fetchListings();
-    }, []);
+        if (!isActive) {
+            dirtyRef.current = true;
+            return;
+        }
+        fetchListings(refreshKey > 0 && items.length > 0);
+    }, [refreshKey]);
+
+    useEffect(() => {
+        if (isActive && dirtyRef.current) {
+            dirtyRef.current = false;
+            fetchListings(items.length > 0);
+        }
+    }, [isActive]);
 
     // Register a new gear listing for intake
     const handleRegisterSubmit = async (e) => {
